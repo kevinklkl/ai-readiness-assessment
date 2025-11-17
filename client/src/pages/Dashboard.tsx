@@ -3,13 +3,13 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
-import { calculateResults, getReadinessLevel, getComplianceStatus, getHighestRiskFactors } from "@/lib/assessment";
+import { calculateResults, getReadinessLevel, getHighestRiskFactors } from "@/lib/assessment";
 import { AssessmentResults } from "@/types/questionnaire";
 import { QUESTIONS } from "@/data/questions";
 import { toast } from "sonner";
 import Footer from "@/components/Footer";
 import { jsPDF } from "jspdf";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 import {
   RadarChart,
   PolarGrid,
@@ -34,6 +34,9 @@ export default function Dashboard() {
   const [results, setResults] = useState<AssessmentResults | null>(null);
   const [expandedPillar, setExpandedPillar] = useState<string | null>(null);
   const [expandedRiskCategory, setExpandedRiskCategory] = useState<string | null>(null);
+  const [forceExpandAll, setForceExpandAll] = useState(false);
+  const [exportMode, setExportMode] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
   const euAiSectionRef = useRef<HTMLDivElement>(null);
 
   const scrollToEuSection = () => {
@@ -76,69 +79,66 @@ export default function Dashboard() {
   const handleExport = async () => {
     if (!results) return;
 
-    // Generate PDF using jsPDF directly to avoid html2pdf/html2canvas parsing CSS functions like oklch
-    const compliancePillar = results.pillarScores.find(ps => ps.pillar === "EU AI Act Compliance");
-    const complianceStatus = getComplianceStatus(compliancePillar ?? { pillar: "EU AI Act Compliance", score: 0, maxScore: 0, percentage: 0, questionCount: 0 });
+    const dashboardElement = exportRef.current;
+    if (!dashboardElement) {
+      toast.error("Unable to find dashboard content to export.");
+      return;
+    }
+
+    // Ensure collapsible sections are expanded for export
+    const prevPillar = expandedPillar;
+    const prevRisk = expandedRiskCategory;
+    setForceExpandAll(true);
+    setExportMode(true);
+    setExpandedPillar(null);
+    setExpandedRiskCategory(null);
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
-      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      let y = 20;
+      // Capture the full dashboard (header + main content) to preserve all visuals
+      const canvas = await html2canvas(dashboardElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        width: dashboardElement.scrollWidth,
+        height: dashboardElement.scrollHeight,
+        windowWidth: dashboardElement.scrollWidth,
+        windowHeight: dashboardElement.scrollHeight
+      });
 
-      doc.setFontSize(20);
-      doc.text('AI Readiness Assessment Report', 14, y);
-      y += 10;
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const imgWidth = pageWidth - margin * 2;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-      doc.setFontSize(10);
-      doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, y);
-      y += 12;
+      let heightLeft = imgHeight;
+      let position = margin;
 
-      // Overall score
-      doc.setFontSize(16);
-      doc.text(`Overall Readiness: ${results.overallPercentage.toFixed(1)}%`, 14, y);
-      y += 10;
-      doc.setFontSize(12);
-      doc.text(`Status: ${getReadinessLevel(results.overallPercentage).status}`, 14, y);
-      y += 12;
+      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight - margin * 2; // subtract printable height
 
-      // Table header
-      doc.setFontSize(12);
-      doc.text('Pillar', 14, y);
-      doc.text('Score', pageWidth - 60, y);
-      doc.text('Percentage', pageWidth - 30, y);
-      y += 6;
-      doc.setLineWidth(0.2);
-      doc.line(14, y, pageWidth - 14, y);
-      y += 6;
+      // Add new pages if the dashboard snapshot is taller than a single A4 page without overlap
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + margin; // move image up to show next slice
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight - margin * 2;
+      }
 
-      // Table rows
-      doc.setFontSize(11);
-      results.pillarScores
-        .filter(ps => ps.pillar !== 'EU AI Act Compliance')
-        .forEach(ps => {
-          if (y > 270) {
-            doc.addPage();
-            y = 20;
-          }
-          doc.text(ps.pillar, 14, y);
-          doc.text(`${ps.score}/${ps.maxScore}`, pageWidth - 60, y, { align: 'right' });
-          doc.text(`${ps.percentage.toFixed(1)}%`, pageWidth - 30, y, { align: 'right' });
-          y += 8;
-        });
-
-      y += 8;
-      doc.setFontSize(12);
-      doc.text('EU AI Act Compliance', 14, y);
-      y += 6;
-      doc.setFontSize(11);
-      doc.text(`Compliance Status: ${complianceStatus.status}`, 14, y);
-
-      const filename = `ai-readiness-assessment-${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(filename);
-      toast.success('PDF exported successfully');
+      const filename = `ai-readiness-dashboard-${new Date().toISOString().split("T")[0]}.pdf`;
+      pdf.save(filename);
+      toast.success("PDF exported successfully");
     } catch (err) {
-      console.error('PDF export failed', err);
-      toast.error('PDF export failed. See console for details.');
+      console.error("PDF export failed", err);
+      toast.error("PDF export failed. See console for details.");
+    } finally {
+      setForceExpandAll(false);
+      setExportMode(false);
+      setExpandedPillar(prevPillar);
+      setExpandedRiskCategory(prevRisk);
     }
   };
 
@@ -192,15 +192,15 @@ export default function Dashboard() {
 
   // Color palette based on design system
   const COLORS = [
-    "oklch(0.35 0.15 250)", // Primary - Deep Blue
-    "oklch(0.65 0.12 170)", // Accent - Teal-Green
-    "oklch(0.45 0.14 250)", // Chart 3
-    "oklch(0.55 0.13 250)", // Chart 4
-    "oklch(0.25 0.16 250)", // Chart 5
-    "oklch(0.5 0.1 200)",   // Additional
-    "oklch(0.6 0.11 180)",  // Additional
-    "oklch(0.4 0.13 230)",  // Additional
-    "oklch(0.7 0.1 160)"    // Additional
+    "#2f4ab8", // Primary - Deep Blue
+    "#21b39c", // Accent - Teal-Green
+    "#3f5fd7", // Chart 3
+    "#4f6fe0", // Chart 4
+    "#203783", // Chart 5
+    "#4c6aa4", // Additional
+    "#57b5a2", // Additional
+    "#3654a1", // Additional
+    "#74c48f"  // Additional
   ];
   // Compute risk factors and next-steps lists once to avoid inline IIFEs inside JSX
   const riskFactors = getHighestRiskFactors(results.responses);
@@ -211,7 +211,7 @@ export default function Dashboard() {
   const hasRisks = riskFactors.critical.length > 0 || riskFactors.important.length > 0 || riskFactors.minimal.length > 0;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className={`min-h-screen bg-background ${exportMode ? "export-mode" : ""}`}>
       {/* Header */}
       <header className="border-b bg-card">
         <div className="container py-6">
@@ -240,7 +240,11 @@ export default function Dashboard() {
         </div>
       </header>
 
-      <main className="container py-8">
+      <main
+        ref={exportRef}
+        className="container py-8"
+        style={exportMode ? { maxWidth: "100%", width: "100%" } : undefined}
+      >
         <div className="max-w-7xl mx-auto space-y-8">
           {/* Overall Score Card */}
           <Card className="border-2">
@@ -303,8 +307,8 @@ export default function Dashboard() {
                         paddingAngle={2}
                         dataKey="value"
                       >
-                        <Cell fill="oklch(0.35 0.15 250)" />
-                        <Cell fill="oklch(0.93 0.005 250)" />
+                        <Cell fill="#2f4ab8" />
+                        <Cell fill="#f2f4fb" />
                       </Pie>
                     </PieChart>
                   </ResponsiveContainer>
@@ -323,10 +327,10 @@ export default function Dashboard() {
               <div className="h-[600px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData} margin={{ top: 50, right: 80, bottom: 50, left: 80 }}>
-                    <PolarGrid stroke="oklch(0.88 0.005 250)" />
-                    <PolarAngleAxis dataKey="pillar" tick={(props) => { const { payload, x, y, textAnchor } = props as any; const isStrategy = payload.value === "Strategy & Value"; return (<g transform={"translate(" + x + "," + y + ")"}><text x={0} y={isStrategy ? -12 : 0} textAnchor={textAnchor} fill="oklch(0.25 0.01 250)" fontSize={11}>{payload.value}</text></g>); }} />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "oklch(0.5 0.01 250)" }} />
-                    <Radar name="Readiness Score" dataKey="score" stroke="oklch(0.35 0.15 250)" fill="oklch(0.35 0.15 250)" fillOpacity={0.3} />
+                    <PolarGrid stroke="#e7e9f6" />
+                    <PolarAngleAxis dataKey="pillar" tick={(props) => { const { payload, x, y, textAnchor } = props as any; const isStrategy = payload.value === "Strategy & Value"; return (<g transform={"translate(" + x + "," + y + ")"}><text x={0} y={isStrategy ? -12 : 0} textAnchor={textAnchor} fill="#2c2f55" fontSize={11}>{payload.value}</text></g>); }} />
+                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#6c6f8c" }} />
+                    <Radar name="Readiness Score" dataKey="score" stroke="#2f4ab8" fill="#2f4ab8" fillOpacity={0.3} />
                     <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
                   </RadarChart>
                 </ResponsiveContainer>
@@ -344,9 +348,9 @@ export default function Dashboard() {
               <div className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.88 0.005 250)" />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e9f6" />
                     <XAxis type="number" domain={[0, 100]} />
-                    <YAxis dataKey="name" type="category" width={200} tick={{ fill: "oklch(0.25 0.01 250)", fontSize: 11 }} />
+                    <YAxis dataKey="name" type="category" width={200} tick={{ fill: "#2c2f55", fontSize: 11 }} />
                     <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
                     <Bar dataKey="score" radius={[0, 8, 8, 0]}>
                       {barData.map((entry, index) => (
@@ -360,13 +364,17 @@ export default function Dashboard() {
           </Card>
 
           {/* Individual Pillar Cards */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={`grid gap-6 ${exportMode ? "grid-cols-1" : "md:grid-cols-2 lg:grid-cols-3"}`}>
             {results.pillarScores
               .filter(ps => ps.pillar !== "EU AI Act Compliance")
               .map((pillarScore, index) => {
                 const statusInfo = getReadinessLevel(pillarScore.percentage);
                 return (
-                  <Card key={pillarScore.pillar} className="relative overflow-hidden">
+                  <Card
+                    key={pillarScore.pillar}
+                    className="relative overflow-hidden"
+                    style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}
+                  >
                     <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: getGradientColor(pillarScore.percentage) }} />
                     <CardHeader>
                       <CardTitle className="text-lg">{pillarScore.pillar}</CardTitle>
@@ -396,7 +404,7 @@ export default function Dashboard() {
             <CardContent className="space-y-6">
               {/* Collapsible Pillars */}
               {incompletePillars.length > 0 && (
-                <div className="space-y-3">
+                 <div className="space-y-3">
                   <h3 className="font-semibold text-foreground">📊 Readiness Improvement Areas</h3>
                   <div className="space-y-2">
                     {incompletePillars.map((ps, index) => {
@@ -405,10 +413,14 @@ export default function Dashboard() {
                         const answer = responseMap.get(q.id);
                         return answer !== 5;
                       });
-                      const isOpen = expandedPillar === ps.pillar;
+                      const isOpen = forceExpandAll || expandedPillar === ps.pillar;
 
                       return (
-                        <div key={ps.pillar} className="border rounded-lg bg-card overflow-hidden">
+                        <div
+                          key={ps.pillar}
+                          className="border rounded-lg bg-card overflow-hidden"
+                          style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}
+                        >
                           <button onClick={() => setExpandedPillar(isOpen ? null : ps.pillar)} className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                             <div className="flex items-start gap-4 flex-1 text-left">
                               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs">{index + 1}</div>
@@ -449,9 +461,9 @@ export default function Dashboard() {
                       <div className="border rounded-lg bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900 overflow-hidden">
                         <button onClick={() => setExpandedRiskCategory(expandedRiskCategory === "critical" ? null : "critical")} className="w-full p-3 flex items-center justify-between hover:bg-red-100 dark:hover:bg-red-900/20 transition-colors text-left">
                           <p className="text-sm font-semibold text-red-900 dark:text-red-200">🚨 {riskFactors.critical.length} Critical Risk{riskFactors.critical.length > 1 ? 's' : ''} (Prohibited Practices)</p>
-                          {expandedRiskCategory === "critical" ? <ChevronUp className="w-4 h-4 text-red-900 dark:text-red-200" /> : <ChevronDown className="w-4 h-4 text-red-900 dark:text-red-200" />}
+                          {forceExpandAll || expandedRiskCategory === "critical" ? <ChevronUp className="w-4 h-4 text-red-900 dark:text-red-200" /> : <ChevronDown className="w-4 h-4 text-red-900 dark:text-red-200" />}
                         </button>
-                        {expandedRiskCategory === "critical" && (
+                        {(forceExpandAll || expandedRiskCategory === "critical") && (
                           <div className="border-t border-red-200 dark:border-red-900 bg-red-100/50 dark:bg-red-900/20 p-3 space-y-2">
                             {riskFactors.critical.map((risk, idx) => (
                               <div key={idx} className="text-xs space-y-1 pb-2 border-b border-red-200 dark:border-red-900 last:border-b-0"><p className="font-medium text-red-900 dark:text-red-200">{risk.question}</p></div>
@@ -465,9 +477,9 @@ export default function Dashboard() {
                       <div className="border rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-900 overflow-hidden">
                         <button onClick={() => setExpandedRiskCategory(expandedRiskCategory === "important" ? null : "important")} className="w-full p-3 flex items-center justify-between hover:bg-yellow-100 dark:hover:bg-yellow-900/20 transition-colors text-left">
                           <p className="text-sm font-semibold text-yellow-900 dark:text-yellow-200">⚠️ {riskFactors.important.length} Important Risk{riskFactors.important.length > 1 ? 's' : ''} (High-Risk Practices)</p>
-                          {expandedRiskCategory === "important" ? <ChevronUp className="w-4 h-4 text-yellow-900 dark:text-yellow-200" /> : <ChevronDown className="w-4 h-4 text-yellow-900 dark:text-yellow-200" />}
+                          {forceExpandAll || expandedRiskCategory === "important" ? <ChevronUp className="w-4 h-4 text-yellow-900 dark:text-yellow-200" /> : <ChevronDown className="w-4 h-4 text-yellow-900 dark:text-yellow-200" />}
                         </button>
-                        {expandedRiskCategory === "important" && (
+                        {(forceExpandAll || expandedRiskCategory === "important") && (
                           <div className="border-t border-yellow-200 dark:border-yellow-900 bg-yellow-100/50 dark:bg-yellow-900/20 p-3 space-y-2">
                             {riskFactors.important.map((risk, idx) => (
                               <div key={idx} className="text-xs space-y-1 pb-2 border-b border-yellow-200 dark:border-yellow-900 last:border-b-0"><p className="font-medium text-yellow-900 dark:text-yellow-200">{risk.question}</p></div>
@@ -481,9 +493,9 @@ export default function Dashboard() {
                       <div className="border rounded-lg bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900 overflow-hidden">
                         <button onClick={() => setExpandedRiskCategory(expandedRiskCategory === "minimal" ? null : "minimal")} className="w-full p-3 flex items-center justify-between hover:bg-blue-100 dark:hover:bg-blue-900/20 transition-colors text-left">
                           <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">📋 {riskFactors.minimal.length} Minimal Risk{riskFactors.minimal.length > 1 ? 's' : ''} (Transparency Obligations)</p>
-                          {expandedRiskCategory === "minimal" ? <ChevronUp className="w-4 h-4 text-blue-900 dark:text-blue-200" /> : <ChevronDown className="w-4 h-4 text-blue-900 dark:text-blue-200" />}
+                          {forceExpandAll || expandedRiskCategory === "minimal" ? <ChevronUp className="w-4 h-4 text-blue-900 dark:text-blue-200" /> : <ChevronDown className="w-4 h-4 text-blue-900 dark:text-blue-200" />}
                         </button>
-                        {expandedRiskCategory === "minimal" && (
+                        {(forceExpandAll || expandedRiskCategory === "minimal") && (
                           <div className="border-t border-blue-200 dark:border-blue-900 bg-blue-100/50 dark:bg-blue-900/20 p-3 space-y-2">
                             {riskFactors.minimal.map((risk, idx) => (
                               <div key={idx} className="text-xs space-y-1 pb-2 border-b border-blue-200 dark:border-blue-900 last:border-b-0"><p className="font-medium text-blue-900 dark:text-blue-200">{risk.question}</p></div>

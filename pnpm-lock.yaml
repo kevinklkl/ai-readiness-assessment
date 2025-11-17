@@ -121,6 +121,9 @@ importers:
       html2canvas:
         specifier: ^1.4.1
         version: 1.4.1
+      html2canvas-pro:
+        specifier: ^1.5.13
+        version: 1.5.13
       html2pdf.js:
         specifier: ^0.12.1
         version: 0.12.1
@@ -2476,6 +2479,10 @@ packages:
 
   html-void-elements@3.0.0:
     resolution: {integrity: sha512-bEqo66MRXsUGxWHV5IP0PUiAWwoEjba4VCzg0LjFJBpchPaTfyfCKTG6bc5F8ucKec3q5y6qOdGyYTSBEvhCrg==}
+
+  html2canvas-pro@1.5.13:
+    resolution: {integrity: sha512-//ksb3JLA+ewSxFODyb5YH6xqRLpe6Kt1i7Zyr5eqHmfcNt0bm8MpzSQjOK2qu6cCv13wqWtOZrCOpA+//EhaA==}
+    engines: {node: '>=16.0.0'}
 
   html2canvas@1.4.1:
     resolution: {integrity: sha512-fPU6BHNpsyIhr8yyMpTLLxAbkaK8ArIBcmZIRiBLiDhjeqvXolaEmDGmELFuX9I4xDcaKKcJl+TKZLqruBbmWA==}
@@ -5941,6 +5948,11 @@ snapshots:
   html-url-attributes@3.0.1: {}
 
   html-void-elements@3.0.0: {}
+
+  html2canvas-pro@1.5.13:
+    dependencies:
+      css-line-break: 2.1.0
+      text-segmentation: 1.0.3
 
   html2canvas@1.4.1:
     dependencies:
