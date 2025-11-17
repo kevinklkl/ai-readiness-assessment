@@ -266,10 +266,49 @@ export default function Dashboard() {
   const barData = results.pillarScores
     .filter(ps => ps.pillar !== "EU AI Act Compliance")
     .map(ps => ({
-      name: ps.pillar.length > 25 ? ps.pillar.substring(0, 25) + "..." : ps.pillar,
+      // Keep full text so mobile users see complete labels
+      name: ps.pillar,
       score: ps.percentage,
       fullName: ps.pillar
     }));
+  const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640;
+
+  // Wrap long radar labels so they stay readable on small screens
+  const wrapLabel = (label: string, maxLength = 16) => {
+    const words = label.split(" ");
+    const lines: string[] = [];
+    let current = "";
+
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (next.length > maxLength && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    }
+
+    if (current) lines.push(current);
+    return lines;
+  };
+
+  const renderPolarAngleTick = (props: any) => {
+    const { payload, x, y, textAnchor } = props;
+    const offsetY = payload?.value === "Strategy & Value" ? -10 : 0;
+    const lines = wrapLabel(payload.value);
+    return (
+      <g transform={`translate(${x},${y})`}>
+        <text x={0} y={offsetY} textAnchor={textAnchor} fill="#2c2f55" fontSize={10}>
+          {lines.map((line, idx) => (
+            <tspan key={`${line}-${idx}`} x={0} dy={idx === 0 ? 0 : 12}>
+              {line}
+            </tspan>
+          ))}
+        </text>
+      </g>
+    );
+  };
 
   // Function to get gradient color from red (0%) to dark green (100%)
   const getGradientColor = (percentage: number) => {
@@ -360,66 +399,62 @@ export default function Dashboard() {
               <CardDescription>Your organization's comprehensive AI maturity score</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex-1">
-                    <div className="space-y-4">
-                      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:gap-3">
-                        <span className="text-6xl font-bold text-foreground leading-none">
-                          {results.overallPercentage.toFixed(1)}%
-                        </span>
-                        <span className={`text-2xl font-semibold leading-none ${readinessInfo.color}`}>
-                          {readinessInfo.status}
-                        </span>
-                      </div>
-                    <p className="text-muted-foreground text-lg">{readinessInfo.description}</p>
-                    <p className="text-sm text-muted-foreground">
-                      Total Score: {results.overallScore} / {results.pillarScores.reduce((sum, ps) => sum + ps.maxScore, 0)} points
-                    </p>
-
-                    {/* EU AI Act Status */}
-                    <div className="pt-2 border-t">
-                      <p className="text-sm font-semibold text-muted-foreground mb-2">EU AI Act Compliance:</p>
-                      <button
-                        onClick={scrollToEuSection}
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold cursor-pointer transition-all hover:scale-105 ${
-                          riskFactors.highestRisk === "Critical Risk" ? "bg-red-100 text-red-900 dark:bg-red-900/20 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/30" :
-                          riskFactors.highestRisk === "Important Risk" ? "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/30" :
-                          riskFactors.highestRisk === "Minimal Risk" ? "bg-orange-100 text-orange-900 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/30" :
-                          "bg-green-100 text-green-900 dark:bg-green-900/20 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/30"
-                        }`}
-                      >
-                        {riskFactors.highestRisk === "Critical Risk" && "🚨"}
-                        {riskFactors.highestRisk === "Important Risk" && "⚠️"}
-                        {riskFactors.highestRisk === "Minimal Risk" && "📋"}
-                        {riskFactors.highestRisk === "No Risks" && "✅"}
-                        {riskFactors.highestRisk}
-                      </button>
-                    </div>
+              <div className="grid gap-6 items-start lg:grid-cols-[1.4fr_0.9fr] lg:grid-rows-[auto_auto] lg:gap-8">
+                <div className="order-1 space-y-4 lg:col-start-1 lg:row-start-1">
+                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:gap-3">
+                    <span className="text-6xl font-bold text-foreground leading-none">
+                      {results.overallPercentage.toFixed(1)}%
+                    </span>
+                    <span className={`text-2xl font-semibold leading-none ${readinessInfo.color}`}>
+                      {readinessInfo.status}
+                    </span>
                   </div>
+                  <p className="text-muted-foreground text-lg">{readinessInfo.description}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Total Score: {results.overallScore} / {results.pillarScores.reduce((sum, ps) => sum + ps.maxScore, 0)} points
+                  </p>
                 </div>
 
                 {/* Simple pie chart for overall score */}
-          <div className="w-64 h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={[
-                    { name: "Achieved", value: results.overallPercentage },
-                    { name: "Remaining", value: 100 - results.overallPercentage }
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  <Cell fill={getGradientColor(results.overallPercentage)} />
-                  <Cell fill="#eceff4" />
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+                <div className="order-2 flex justify-center lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:justify-end lg:self-center">
+                  <div className="w-64 h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={[
+                            { name: "Achieved", value: results.overallPercentage },
+                            { name: "Remaining", value: 100 - results.overallPercentage }
+                          ]}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={2}
+                          dataKey="value"
+                        >
+                          <Cell fill={getGradientColor(results.overallPercentage)} />
+                          <Cell fill="#eceff4" />
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                {/* EU AI Act Status */}
+                <div className="order-3 border-t pt-3 lg:col-start-1 lg:row-start-2 lg:border-t lg:pt-3 lg:mt-2">
+                  <p className="text-sm font-semibold text-muted-foreground mb-2">EU AI Act Compliance:</p>
+                  <button
+                    onClick={scrollToEuSection}
+                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold cursor-pointer transition-all hover:scale-105 ${
+                      riskFactors.highestRisk === "Critical Risk" ? "bg-red-100 text-red-900 dark:bg-red-900/20 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/30" :
+                      riskFactors.highestRisk === "Important Risk" ? "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/30" :
+                      riskFactors.highestRisk === "Minimal Risk" ? "bg-orange-100 text-orange-900 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/30" :
+                      "bg-green-100 text-green-900 dark:bg-green-900/20 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/30"
+                    }`}
+                  >
+                    {riskFactors.highestRisk}
+                  </button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -433,9 +468,9 @@ export default function Dashboard() {
             <CardContent>
               <div className="h-[600px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData} margin={{ top: 50, right: 80, bottom: 50, left: 80 }}>
+                  <RadarChart data={radarData} margin={{ top: 60, right: 60, bottom: 60, left: 60 }}>
                     <PolarGrid stroke="#e7e9f6" />
-                    <PolarAngleAxis dataKey="pillar" tick={(props) => { const { payload, x, y, textAnchor } = props as any; const isStrategy = payload.value === "Strategy & Value"; return (<g transform={"translate(" + x + "," + y + ")"}><text x={0} y={isStrategy ? -12 : 0} textAnchor={textAnchor} fill="#2c2f55" fontSize={11}>{payload.value}</text></g>); }} />
+                    <PolarAngleAxis dataKey="pillar" tick={renderPolarAngleTick} />
                     <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#6c6f8c" }} />
                     <Radar name="Readiness Score" dataKey="score" stroke="#2f4ab8" fill="#2f4ab8" fillOpacity={0.3} />
                     <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
@@ -455,12 +490,21 @@ export default function Dashboard() {
                 <CardDescription>Detailed scores for each assessment dimension</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[400px]">
+                <div className="h-[400px] -mx-4 sm:mx-0">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={barData} layout="vertical">
+                    <BarChart
+                      data={barData}
+                      layout="vertical"
+                      margin={{ top: 10, right: 20, bottom: 10, left: isSmallScreen ? 0 : 20 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" stroke="#e7e9f6" />
                       <XAxis type="number" domain={[0, 100]} />
-                      <YAxis dataKey="name" type="category" width={200} tick={{ fill: "#2c2f55", fontSize: 11 }} />
+                      <YAxis
+                        dataKey="name"
+                        type="category"
+                        width={isSmallScreen ? 150 : 200}
+                        tick={{ fill: "#2c2f55", fontSize: 11 }}
+                      />
                       <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
                       <Bar dataKey="score" radius={[0, 8, 8, 0]}>
                         {barData.map((entry, index) => (
@@ -672,3 +716,4 @@ export default function Dashboard() {
     </div>
   );
 }
+
