@@ -44,6 +44,7 @@ export default function Dashboard() {
   const nextStepsRef = useRef<HTMLDivElement>(null);
   const nextStepsGroups = useRef<(HTMLDivElement | null)[]>([]);
   const risksRef = useRef<HTMLDivElement>(null);
+  const disclaimerRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const euAiSectionRef = useRef<HTMLDivElement>(null);
 
@@ -221,6 +222,11 @@ export default function Dashboard() {
         await captureAndAddPage(risksRef.current, "EU AI Act Risks");
       }
 
+      // Disclaimer
+      if (disclaimerRef.current) {
+        await captureAndAddPage(disclaimerRef.current, "Disclaimer");
+      }
+
       const filename = `ai-readiness-dashboard-${new Date().toISOString().split("T")[0]}.pdf`;
       pdf.save(filename);
       toast.success("PDF exported successfully");
@@ -305,10 +311,19 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex gap-3">
-              <Button onClick={handleExport} variant="outline" disabled={isExporting}>
+              <Button
+                onClick={handleExport}
+                variant="outline"
+                disabled={isExporting}
+                className="min-w-[120px]"
+                aria-busy={isExporting}
+              >
                 {isExporting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Loader2
+                      className="w-4 h-4 mr-2"
+                      style={{ animation: "spin 1.5s linear infinite" }}
+                    />
                     Exporting...
                   </>
                 ) : (
@@ -637,6 +652,17 @@ export default function Dashboard() {
             </CardContent>
             </Card>
           </div>
+
+          {/* Disclaimer */}
+          <section ref={disclaimerRef} className="container">
+            <div className="max-w-7xl mx-auto mt-8">
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-sm">
+                <p>
+                  <span className="font-semibold">Disclaimer:</span> This framework does not replace or supersede the legal requirements of the EU AI Act. Organizations remain fully responsible for reviewing and complying with all applicable regulations. <span className="font-semibold">This is only a recommendation.</span>
+                </p>
+              </div>
+            </div>
+          </section>
 
           {/* EU AI Act Section with ref */}
           <div ref={euAiSectionRef}></div>

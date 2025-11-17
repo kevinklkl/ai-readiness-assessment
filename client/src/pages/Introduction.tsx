@@ -253,6 +253,19 @@ export default function Introduction() {
           </div>
         </div>
       </section>
+
+      {/* Disclaimer */}
+      <section className="pb-10 px-4">
+        <div className="container">
+          <div className="max-w-7xl mx-auto">
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-sm">
+              <p>
+                <span className="font-semibold">Disclaimer:</span> This framework does not replace or supersede the legal requirements of the EU AI Act. Organizations remain fully responsible for reviewing and complying with all applicable regulations. <span className="font-semibold">This is only a recommendation.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
       <Footer />
     </div>
   );
