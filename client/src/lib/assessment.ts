@@ -46,8 +46,11 @@ export function calculateResults(responses: QuestionnaireResponse[]): Assessment
       questionCount: questions.length
     });
 
-    totalScore += pillarScore;
-    totalMaxScore += pillarMaxScore;
+    // Don't include EU AI Act Compliance in overall score
+    if (pillar !== "EU AI Act Compliance") {
+      totalScore += pillarScore;
+      totalMaxScore += pillarMaxScore;
+    }
   });
 
   const overallPercentage = totalMaxScore > 0 ? (totalScore / totalMaxScore) * 100 : 0;
@@ -130,4 +133,53 @@ export function getComplianceStatus(pillarScore: PillarScore): {
   }
   
   return getReadinessLevel(percentage);
+}
+
+export function getHighestRiskFactors(responses: QuestionnaireResponse[]): {
+  critical: Array<{ indicator: string; question: string }>;
+  important: Array<{ indicator: string; question: string }>;
+  minimal: Array<{ indicator: string; question: string }>;
+  highestRisk: string;
+} {
+  const responseMap = new Map(responses.map(r => [r.questionId, r.answer]));
+  const euQuestions = QUESTIONS.filter(q => q.pillar === "EU AI Act Compliance");
+  
+  const critical: Array<{ indicator: string; question: string }> = [];
+  const important: Array<{ indicator: string; question: string }> = [];
+  const minimal: Array<{ indicator: string; question: string }> = [];
+  
+  euQuestions.forEach(q => {
+    const answer = responseMap.get(q.id);
+    // For compliance questions: "Yes" means they ARE doing this (the risk), which is bad
+    if (answer === true) {
+      if (q.indicator === "Prohibited Practices (Fatal Risk)") {
+        critical.push({
+          indicator: q.indicator,
+          question: q.question
+        });
+      } else if (q.indicator === "High-Risk Practices (Mandatory Compliance)") {
+        important.push({
+          indicator: q.indicator,
+          question: q.question
+        });
+      } else if (q.indicator === "Minimal/Low-Risk Practices (Transparency Obligations)") {
+        minimal.push({
+          indicator: q.indicator,
+          question: q.question
+        });
+      }
+    }
+  });
+  
+  // Determine highest risk
+  let highestRisk = "No Risks";
+  if (critical.length > 0) {
+    highestRisk = "Critical Risk";
+  } else if (important.length > 0) {
+    highestRisk = "Important Risk";
+  } else if (minimal.length > 0) {
+    highestRisk = "Minimal Risk";
+  }
+  
+  return { critical, important, minimal, highestRisk };
 }

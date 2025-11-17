@@ -62,14 +62,24 @@ export default function Questionnaire() {
   const handleNext = () => {
     if (currentPillarIndex < PILLARS.length - 1) {
       setCurrentPillarIndex(currentPillarIndex + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const mainEl = document.querySelector('main');
+      if (mainEl && typeof (mainEl as HTMLElement).scrollTo === 'function') {
+        (mainEl as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
   const handlePrevious = () => {
     if (currentPillarIndex > 0) {
       setCurrentPillarIndex(currentPillarIndex - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      const mainEl = document.querySelector('main');
+      if (mainEl && typeof (mainEl as HTMLElement).scrollTo === 'function') {
+        (mainEl as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     }
   };
 
