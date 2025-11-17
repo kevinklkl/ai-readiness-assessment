@@ -271,7 +271,8 @@ export default function Dashboard() {
       score: ps.percentage,
       fullName: ps.pillar
     }));
-  const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640;
+  const forceDesktopForExport = exportMode;
+  const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640 && !forceDesktopForExport;
 
   // Wrap long radar labels so they stay readable on small screens
   const wrapLabel = (label: string, maxLength = 16) => {
@@ -388,7 +389,7 @@ export default function Dashboard() {
       <main
         ref={exportRef}
         className="container py-8"
-        style={exportMode ? { maxWidth: "100%", width: "100%" } : undefined}
+        style={exportMode ? { maxWidth: "1280px", width: "1280px" } : undefined}
       >
         <div className="max-w-7xl mx-auto space-y-8">
           <div ref={overviewRef} className="space-y-8">
@@ -399,8 +400,10 @@ export default function Dashboard() {
               <CardDescription>Your organization's comprehensive AI maturity score</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-6 items-start lg:grid-cols-[1.4fr_0.9fr] lg:grid-rows-[auto_auto] lg:gap-8">
-                <div className="order-1 space-y-4 lg:col-start-1 lg:row-start-1">
+              <div
+                className={`grid gap-6 items-start lg:grid-cols-[1.4fr_0.9fr] lg:grid-rows-[auto_auto] lg:gap-8 ${exportMode ? "grid-cols-[1.4fr_0.9fr] grid-rows-[auto_auto]" : ""}`}
+              >
+                <div className={`order-1 space-y-4 ${exportMode ? "" : "lg:col-start-1 lg:row-start-1"}`}>
                   <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:gap-3">
                     <span className="text-6xl font-bold text-foreground leading-none">
                       {results.overallPercentage.toFixed(1)}%
@@ -416,7 +419,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Simple pie chart for overall score */}
-                <div className="order-2 flex justify-center lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:justify-end lg:self-center">
+                <div className={`order-2 flex justify-center ${exportMode ? "col-start-2 row-start-1 row-span-2 justify-end self-center" : "lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:justify-end lg:self-center"}`}>
                   <div className="w-64 h-64">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -441,7 +444,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* EU AI Act Status */}
-                <div className="order-3 border-t pt-3 lg:col-start-1 lg:row-start-2 lg:border-t lg:pt-3 lg:mt-2">
+                <div className={`order-3 border-t pt-3 ${exportMode ? "col-start-1 row-start-2" : "lg:col-start-1 lg:row-start-2 lg:border-t lg:pt-3 lg:mt-2"}`}>
                   <p className="text-sm font-semibold text-muted-foreground mb-2">EU AI Act Compliance:</p>
                   <button
                     onClick={scrollToEuSection}
@@ -519,7 +522,11 @@ export default function Dashboard() {
           </div>
 
           {/* Individual Pillar Cards */}
-          <div ref={pillarsRef} className={`grid gap-5 ${exportMode ? "grid-cols-1" : "md:grid-cols-2 lg:grid-cols-3"}`}>
+          <div
+            ref={pillarsRef}
+            className={`grid gap-5 ${exportMode ? "grid-cols-3" : "md:grid-cols-2 lg:grid-cols-3"}`}
+            style={exportMode ? { gridTemplateColumns: "repeat(3, minmax(0, 1fr))" } : undefined}
+          >
             {results.pillarScores
               .filter(ps => ps.pillar !== "EU AI Act Compliance")
               .map((pillarScore, index) => {
