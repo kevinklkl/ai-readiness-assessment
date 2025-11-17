@@ -310,7 +310,7 @@ export default function Dashboard() {
                 Completed on {new Date(results.completedAt).toLocaleDateString()}
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-3 flex-col sm:flex-row sm:items-center">
               <Button
                 onClick={handleExport}
                 variant="outline"
@@ -360,17 +360,17 @@ export default function Dashboard() {
               <CardDescription>Your organization's comprehensive AI maturity score</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-8">
-                <div className="flex-1">
-                  <div className="space-y-4">
-                    <div className="flex items-baseline gap-3">
-                      <span className="text-6xl font-bold text-foreground">
-                        {results.overallPercentage.toFixed(1)}%
-                      </span>
-                      <span className={`text-2xl font-semibold ${readinessInfo.color}`}>
-                        {readinessInfo.status}
-                      </span>
-                    </div>
+                <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1">
+                    <div className="space-y-4">
+                      <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:gap-3">
+                        <span className="text-6xl font-bold text-foreground leading-none">
+                          {results.overallPercentage.toFixed(1)}%
+                        </span>
+                        <span className={`text-2xl font-semibold leading-none ${readinessInfo.color}`}>
+                          {readinessInfo.status}
+                        </span>
+                      </div>
                     <p className="text-muted-foreground text-lg">{readinessInfo.description}</p>
                     <p className="text-sm text-muted-foreground">
                       Total Score: {results.overallScore} / {results.pillarScores.reduce((sum, ps) => sum + ps.maxScore, 0)} points
@@ -492,9 +492,9 @@ export default function Dashboard() {
                       <CardDescription className="text-xs">{pillarScore.questionCount} questions</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-2">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-3xl font-bold text-foreground">{pillarScore.percentage.toFixed(1)}%</span>
-                        <span className={`text-xs font-semibold ${statusInfo.color}`}>{statusInfo.status}</span>
+                      <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-baseline sm:gap-2">
+                        <span className="text-3xl font-bold text-foreground leading-none">{pillarScore.percentage.toFixed(1)}%</span>
+                        <span className={`text-xs font-semibold leading-none ${statusInfo.color}`}>{statusInfo.status}</span>
                       </div>
                       <div className="w-full bg-muted rounded-full h-1.5">
                         <div className="h-1.5 rounded-full transition-all" style={{ width: `${pillarScore.percentage}%`, backgroundColor: getGradientColor(pillarScore.percentage) }} />
