@@ -6,6 +6,7 @@ import { ArrowLeft, Download, RotateCcw } from "lucide-react";
 import { calculateResults, getReadinessLevel, getComplianceStatus } from "@/lib/assessment";
 import { AssessmentResults } from "@/types/questionnaire";
 import { toast } from "sonner";
+import Footer from "@/components/Footer";
 import {
   RadarChart,
   PolarGrid,
@@ -381,6 +382,7 @@ export default function Dashboard() {
           </Card>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

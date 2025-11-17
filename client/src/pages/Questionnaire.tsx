@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { QUESTIONS, PILLARS } from "@/data/questions";
 import { QuestionnaireResponse } from "@/types/questionnaire";
 import { toast } from "sonner";
+import Footer from "@/components/Footer";
 
 export default function Questionnaire() {
   const [, setLocation] = useLocation();
@@ -258,6 +259,7 @@ export default function Questionnaire() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 }

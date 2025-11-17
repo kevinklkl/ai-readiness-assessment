@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, CheckCircle2, Clock, FileText } from "lucide-react";
+import Footer from "@/components/Footer";
 
 export default function Introduction() {
   const [, setLocation] = useLocation();
@@ -252,6 +253,7 @@ export default function Introduction() {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   );
 }
