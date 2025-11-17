@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ export default function Questionnaire() {
   const [, setLocation] = useLocation();
   const [currentPillarIndex, setCurrentPillarIndex] = useState(0);
   const [responses, setResponses] = useState<Map<number, number | boolean>>(new Map());
+  const questionSectionRef = useRef<HTMLDivElement>(null);
 
   // Load saved responses from localStorage
   useEffect(() => {
@@ -59,29 +60,34 @@ export default function Questionnaire() {
     return currentQuestions.every(q => responses.has(q.id));
   };
 
+  const scrollToTop = () => {
+    // Delay to allow DOM render before scrolling
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const header = document.querySelector("header");
+        const headerHeight = header ? (header as HTMLElement).offsetHeight : 0;
+        const top = Math.max(0, window.pageYOffset - (window.pageYOffset - headerHeight));
+        window.scrollTo({ top, behavior: "smooth" });
+      });
+    });
+  };
+
   const handleNext = () => {
     if (currentPillarIndex < PILLARS.length - 1) {
       setCurrentPillarIndex(currentPillarIndex + 1);
-      const mainEl = document.querySelector('main');
-      if (mainEl && typeof (mainEl as HTMLElement).scrollTo === 'function') {
-        (mainEl as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
     }
   };
 
   const handlePrevious = () => {
     if (currentPillarIndex > 0) {
       setCurrentPillarIndex(currentPillarIndex - 1);
-      const mainEl = document.querySelector('main');
-      if (mainEl && typeof (mainEl as HTMLElement).scrollTo === 'function') {
-        (mainEl as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' });
-      } else {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
     }
   };
+
+  // Scroll to top of questions whenever the pillar changes
+  useEffect(() => {
+    scrollToTop();
+  }, [currentPillarIndex]);
 
   const handleViewResults = () => {
     if (responses.size < totalQuestions) {
@@ -169,16 +175,21 @@ export default function Questionnaire() {
           </div>
 
           {/* Current Pillar Questions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">{currentPillar}</CardTitle>
-              <CardDescription>
-                Section {currentPillarIndex + 1} of {PILLARS.length} • {currentQuestions.length} questions
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              {currentQuestions.map((question, index) => (
-                <div key={question.id} className="space-y-4 pb-6 border-b last:border-b-0">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">{currentPillar}</CardTitle>
+                <CardDescription>
+                  Section {currentPillarIndex + 1} of {PILLARS.length} • {currentQuestions.length} questions
+                </CardDescription>
+              </CardHeader>
+              <CardContent ref={questionSectionRef} className="space-y-8">
+                {currentQuestions.map((question, index) => (
+                  <div
+                    key={question.id}
+                    data-question-item
+                    tabIndex={-1}
+                    className="space-y-4 pb-6 border-b last:border-b-0"
+                  >
                   <div className="flex gap-4">
                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-sm">
                       {index + 1}

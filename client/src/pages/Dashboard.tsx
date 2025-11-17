@@ -2,13 +2,14 @@ import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { calculateResults, getReadinessLevel, getHighestRiskFactors } from "@/lib/assessment";
 import { AssessmentResults } from "@/types/questionnaire";
 import { QUESTIONS } from "@/data/questions";
 import { toast } from "sonner";
 import Footer from "@/components/Footer";
 import { jsPDF } from "jspdf";
+// @ts-ignore
 import html2canvas from "html2canvas-pro";
 import {
   RadarChart,
@@ -36,6 +37,13 @@ export default function Dashboard() {
   const [expandedRiskCategory, setExpandedRiskCategory] = useState<string | null>(null);
   const [forceExpandAll, setForceExpandAll] = useState(false);
   const [exportMode, setExportMode] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const overviewRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const pillarsRef = useRef<HTMLDivElement>(null);
+  const nextStepsRef = useRef<HTMLDivElement>(null);
+  const nextStepsGroups = useRef<(HTMLDivElement | null)[]>([]);
+  const risksRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const euAiSectionRef = useRef<HTMLDivElement>(null);
 
@@ -77,55 +85,140 @@ export default function Dashboard() {
   };
 
   const handleExport = async () => {
-    if (!results) return;
+    if (!results || isExporting) return;
 
-    const dashboardElement = exportRef.current;
-    if (!dashboardElement) {
-      toast.error("Unable to find dashboard content to export.");
-      return;
-    }
-
-    // Ensure collapsible sections are expanded for export
-    const prevPillar = expandedPillar;
-    const prevRisk = expandedRiskCategory;
+    // Expand all sections before export
+    setIsExporting(true);
     setForceExpandAll(true);
     setExportMode(true);
-    setExpandedPillar(null);
-    setExpandedRiskCategory(null);
-    await new Promise(resolve => setTimeout(resolve, 50));
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
-      // Capture the full dashboard (header + main content) to preserve all visuals
-      const canvas = await html2canvas(dashboardElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        width: dashboardElement.scrollWidth,
-        height: dashboardElement.scrollHeight,
-        windowWidth: dashboardElement.scrollWidth,
-        windowHeight: dashboardElement.scrollHeight
-      });
-
-      const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
-      const imgWidth = pageWidth - margin * 2;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const contentWidth = pageWidth - margin * 2;
+      let isFirstPage = true;
 
-      let heightLeft = imgHeight;
-      let position = margin;
+      // Helper function to capture an element and add it to PDF
+      const captureAndAddPage = async (element: HTMLElement | null, title: string) => {
+        if (!element) {
+          console.warn(`${title} element not found`);
+          console.log("nextStepsRef.current:", nextStepsRef.current);
+          console.log("overviewRef.current:", overviewRef.current);
+          console.log("pillarsRef.current:", pillarsRef.current);
+          console.log("barRef.current:", barRef.current);
+          return;
+        }
 
-      pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight - margin * 2; // subtract printable height
+        try {
+          console.log(`Capturing ${title}...`, element);
+          
+          const canvas = await html2canvas(element, {
+            scale: 1.5,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            backgroundColor: "#ffffff"
+          });
 
-      // Add new pages if the dashboard snapshot is taller than a single A4 page without overlap
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight + margin; // move image up to show next slice
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", margin, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight - margin * 2;
+          const canvasWidth = canvas.width;
+          const canvasHeight = canvas.height;
+          console.log(`${title} canvas size: ${canvasWidth}x${canvasHeight}`);
+          
+          const ratio = contentWidth / canvasWidth;
+          const scaledHeight = canvasHeight * ratio;
+
+          // If content fits on one page, add it directly
+          if (scaledHeight <= pageHeight - margin * 2) {
+            if (!isFirstPage) {
+              pdf.addPage();
+            }
+            
+            pdf.addImage(
+              canvas.toDataURL("image/jpeg", 0.9),
+              "JPEG",
+              margin,
+              margin,
+              contentWidth,
+              scaledHeight
+            );
+            isFirstPage = false;
+            console.log(`${title} added to page`);
+          } else {
+            // Paginate if content is too long
+            let position = 0;
+            const pageHeightInCanvas = (pageHeight - margin * 2) / ratio;
+            let isFirstSlice = true;
+
+            while (position < canvasHeight) {
+              const sliceHeight = Math.min(pageHeightInCanvas, canvasHeight - position);
+              
+              const sliceCanvas = document.createElement("canvas");
+              sliceCanvas.width = canvasWidth;
+              sliceCanvas.height = sliceHeight;
+
+              const ctx = sliceCanvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(
+                  canvas,
+                  0, position,
+                  canvasWidth, sliceHeight,
+                  0, 0,
+                  canvasWidth, sliceHeight
+                );
+              }
+
+              const sliceImgData = sliceCanvas.toDataURL("image/jpeg", 0.9);
+              const sliceHeightMm = sliceHeight * ratio;
+
+              if (!isFirstPage || !isFirstSlice) {
+                pdf.addPage();
+              }
+              
+              pdf.addImage(sliceImgData, "JPEG", margin, margin, contentWidth, sliceHeightMm);
+              
+              position += sliceHeight;
+              isFirstSlice = false;
+              isFirstPage = false;
+            }
+            
+            console.log(`${title} added across multiple pages`);
+          }
+        } catch (error) {
+          console.error(`Failed to capture ${title}:`, error);
+        }
+      };
+
+      // Page 1: Overview (Overall Score + Radar Chart)
+      await captureAndAddPage(overviewRef.current, "Overview & Radar");
+
+      // Page 2: Pillar Score Cards
+      await captureAndAddPage(pillarsRef.current, "Pillar Scores");
+
+      // Page 3: Bar Chart
+      await captureAndAddPage(barRef.current, "Bar Chart");
+
+      // Page 4+: Next Steps groups (one page per 3 items with page breaks)
+      // Use the same filter as the UI to find incomplete pillars so refs/indexing match
+      const incompletePillarsForExport = results.pillarScores
+        .filter(ps => ps.pillar !== "EU AI Act Compliance" && ps.percentage < 100)
+        .sort((a, b) => a.percentage - b.percentage);
+      const numGroups = Math.ceil(incompletePillarsForExport.length / 3);
+
+      for (let i = 0; i < numGroups; i++) {
+        if (nextStepsGroups.current[i]) {
+          console.log(`Exporting Next Steps group ${i + 1} of ${numGroups}`);
+          await captureAndAddPage(nextStepsGroups.current[i], `Next Steps Group ${i + 1}`);
+        } else {
+          console.warn(`Next steps group ${i} missing in DOM during export`);
+        }
+      }
+
+      // Capture EU AI Act risks if present
+      if (risksRef.current) {
+        await captureAndAddPage(risksRef.current, "EU AI Act Risks");
       }
 
       const filename = `ai-readiness-dashboard-${new Date().toISOString().split("T")[0]}.pdf`;
@@ -135,10 +228,9 @@ export default function Dashboard() {
       console.error("PDF export failed", err);
       toast.error("PDF export failed. See console for details.");
     } finally {
+      setIsExporting(false);
       setForceExpandAll(false);
       setExportMode(false);
-      setExpandedPillar(prevPillar);
-      setExpandedRiskCategory(prevRisk);
     }
   };
 
@@ -190,18 +282,8 @@ export default function Dashboard() {
     }
   };
 
-  // Color palette based on design system
-  const COLORS = [
-    "#2f4ab8", // Primary - Deep Blue
-    "#21b39c", // Accent - Teal-Green
-    "#3f5fd7", // Chart 3
-    "#4f6fe0", // Chart 4
-    "#203783", // Chart 5
-    "#4c6aa4", // Additional
-    "#57b5a2", // Additional
-    "#3654a1", // Additional
-    "#74c48f"  // Additional
-  ];
+  // Color palette based on score (green to red) for charts
+  const BAR_COLOR = '#2f4ab8';
   // Compute risk factors and next-steps lists once to avoid inline IIFEs inside JSX
   const riskFactors = getHighestRiskFactors(results.responses);
   const responseMap = new Map(results.responses.map(r => [r.questionId, r.answer]));
@@ -223,9 +305,18 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex gap-3">
-              <Button onClick={handleExport} variant="outline">
-                <Download className="w-4 h-4 mr-2" />
-                Export
+              <Button onClick={handleExport} variant="outline" disabled={isExporting}>
+                {isExporting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                  </>
+                )}
               </Button>
               <Button onClick={handleReset} variant="outline">
                 <RotateCcw className="w-4 h-4 mr-2" />
@@ -246,6 +337,7 @@ export default function Dashboard() {
         style={exportMode ? { maxWidth: "100%", width: "100%" } : undefined}
       >
         <div className="max-w-7xl mx-auto space-y-8">
+          <div ref={overviewRef} className="space-y-8">
           {/* Overall Score Card */}
           <Card className="border-2">
             <CardHeader>
@@ -292,27 +384,27 @@ export default function Dashboard() {
                 </div>
 
                 {/* Simple pie chart for overall score */}
-                <div className="w-64 h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: "Achieved", value: results.overallPercentage },
-                          { name: "Remaining", value: 100 - results.overallPercentage }
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={2}
-                        dataKey="value"
-                      >
-                        <Cell fill="#2f4ab8" />
-                        <Cell fill="#f2f4fb" />
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
+          <div className="w-64 h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={[
+                    { name: "Achieved", value: results.overallPercentage },
+                    { name: "Remaining", value: 100 - results.overallPercentage }
+                  ]}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={2}
+                  dataKey="value"
+                >
+                  <Cell fill={getGradientColor(results.overallPercentage)} />
+                  <Cell fill="#eceff4" />
+                </Pie>
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
               </div>
             </CardContent>
           </Card>
@@ -338,33 +430,37 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          </div>
+
           {/* Bar Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Pillar-by-Pillar Breakdown</CardTitle>
-              <CardDescription>Detailed scores for each assessment dimension</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e7e9f6" />
-                    <XAxis type="number" domain={[0, 100]} />
-                    <YAxis dataKey="name" type="category" width={200} tick={{ fill: "#2c2f55", fontSize: 11 }} />
-                    <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
-                    <Bar dataKey="score" radius={[0, 8, 8, 0]}>
-                      {barData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
+          <div ref={barRef}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Pillar-by-Pillar Breakdown</CardTitle>
+                <CardDescription>Detailed scores for each assessment dimension</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={barData} layout="vertical">
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e7e9f6" />
+                      <XAxis type="number" domain={[0, 100]} />
+                      <YAxis dataKey="name" type="category" width={200} tick={{ fill: "#2c2f55", fontSize: 11 }} />
+                      <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
+                      <Bar dataKey="score" radius={[0, 8, 8, 0]}>
+                        {barData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={BAR_COLOR} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Individual Pillar Cards */}
-          <div className={`grid gap-6 ${exportMode ? "grid-cols-1" : "md:grid-cols-2 lg:grid-cols-3"}`}>
+          <div ref={pillarsRef} className={`grid gap-5 ${exportMode ? "grid-cols-1" : "md:grid-cols-2 lg:grid-cols-3"}`}>
             {results.pillarScores
               .filter(ps => ps.pillar !== "EU AI Act Compliance")
               .map((pillarScore, index) => {
@@ -372,21 +468,21 @@ export default function Dashboard() {
                 return (
                   <Card
                     key={pillarScore.pillar}
-                    className="relative overflow-hidden"
+                    className="relative overflow-hidden export-pillar-card"
                     style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}
                   >
                     <div className="absolute top-0 left-0 right-0 h-1" style={{ backgroundColor: getGradientColor(pillarScore.percentage) }} />
-                    <CardHeader>
-                      <CardTitle className="text-lg">{pillarScore.pillar}</CardTitle>
-                      <CardDescription>{pillarScore.questionCount} questions</CardDescription>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{pillarScore.pillar}</CardTitle>
+                      <CardDescription className="text-xs">{pillarScore.questionCount} questions</CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-bold text-foreground">{pillarScore.percentage.toFixed(1)}%</span>
-                        <span className={`text-sm font-semibold ${statusInfo.color}`}>{statusInfo.status}</span>
+                        <span className="text-3xl font-bold text-foreground">{pillarScore.percentage.toFixed(1)}%</span>
+                        <span className={`text-xs font-semibold ${statusInfo.color}`}>{statusInfo.status}</span>
                       </div>
-                      <div className="w-full bg-muted rounded-full h-2">
-                        <div className="h-2 rounded-full transition-all" style={{ width: `${pillarScore.percentage}%`, backgroundColor: getGradientColor(pillarScore.percentage) }} />
+                      <div className="w-full bg-muted rounded-full h-1.5">
+                        <div className="h-1.5 rounded-full transition-all" style={{ width: `${pillarScore.percentage}%`, backgroundColor: getGradientColor(pillarScore.percentage) }} />
                       </div>
                       <p className="text-xs text-muted-foreground">{pillarScore.score} / {pillarScore.maxScore} points</p>
                     </CardContent>
@@ -396,18 +492,37 @@ export default function Dashboard() {
           </div>
 
           {/* Action Items */}
-          <Card className="bg-gradient-to-br from-primary/5 to-accent/5 border-2">
-            <CardHeader>
-              <CardTitle>Next Steps</CardTitle>
-              <CardDescription>Click on each category to see which questions need improvement</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Collapsible Pillars */}
+          <div ref={nextStepsRef}>
+            <Card 
+              className="bg-gradient-to-br from-primary/5 to-accent/5 border-2"
+              style={exportMode ? { backgroundColor: "white" } : undefined}
+            >
+              <CardHeader>
+                <CardTitle>Next Steps</CardTitle>
+                <CardDescription>Click on each category to see which questions need improvement</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+              {/* Collapsible Pillars - grouped 3 per section */}
               {incompletePillars.length > 0 && (
-                 <div className="space-y-3">
-                  <h3 className="font-semibold text-foreground">📊 Readiness Improvement Areas</h3>
-                  <div className="space-y-2">
-                    {incompletePillars.map((ps, index) => {
+                 <div className="space-y-6">
+                  {/* Group pillars into sets of 3 */}
+                  {Array.from({ length: Math.ceil(incompletePillars.length / 3) }).map((_, pageIdx) => {
+                    const start = pageIdx * 3;
+                    const end = Math.min(start + 3, incompletePillars.length);
+                    const pillarGroup = incompletePillars.slice(start, end);
+                    
+                    return (
+                      <div 
+                        key={pageIdx} 
+                        ref={(el) => {
+                          if (el) nextStepsGroups.current[pageIdx] = el;
+                        }}
+                        className="space-y-3"
+                      >
+                        <h3 className="font-semibold text-foreground text-sm">📊 Readiness Improvement Areas</h3>
+                        <div className="space-y-2">
+                          {pillarGroup.map((ps, localIndex) => {
+                            const globalIndex = start + localIndex;
                       const pillarQuestions = QUESTIONS.filter(q => q.pillar === ps.pillar && q.scoring === "1 to 5");
                       const questionsNot5 = pillarQuestions.filter(q => {
                         const answer = responseMap.get(q.id);
@@ -418,12 +533,12 @@ export default function Dashboard() {
                       return (
                         <div
                           key={ps.pillar}
-                          className="border rounded-lg bg-card overflow-hidden"
+                          className="border rounded-lg bg-card overflow-hidden export-next-step"
                           style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}
                         >
                           <button onClick={() => setExpandedPillar(isOpen ? null : ps.pillar)} className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
                             <div className="flex items-start gap-4 flex-1 text-left">
-                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs">{index + 1}</div>
+                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs">{globalIndex + 1}</div>
                               <div className="flex-1">
                                 <h4 className="font-semibold text-foreground">{ps.pillar}</h4>
                                 <p className="text-sm text-muted-foreground">{ps.percentage.toFixed(1)}% ({ps.score}/{ps.maxScore} points) • {questionsNot5.length} question{questionsNot5.length !== 1 ? 's' : ''} below 5</p>
@@ -447,14 +562,17 @@ export default function Dashboard() {
                           )}
                         </div>
                       );
-                    })}
-                  </div>
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
               {/* EU AI Risks */}
               {hasRisks && (
-                <div className="space-y-3 pt-4 border-t">
+                <div ref={risksRef} className="space-y-3 pt-4 border-t" style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}>
                   <h3 className="font-semibold text-destructive">⚠️ EU AI Act Compliance Risks</h3>
                   <div className="space-y-2">
                     {riskFactors.critical.length > 0 && (
@@ -517,7 +635,8 @@ export default function Dashboard() {
                 <p className="text-foreground font-semibold">✅ All readiness pillars are at 100%. Focus now on addressing the EU AI Act compliance risks identified above.</p>
               )}
             </CardContent>
-          </Card>
+            </Card>
+          </div>
 
           {/* EU AI Act Section with ref */}
           <div ref={euAiSectionRef}></div>

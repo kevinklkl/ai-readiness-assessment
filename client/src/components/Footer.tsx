@@ -6,12 +6,12 @@ export default function Footer() {
           <img
             src="/corresbondsvg.svg"
             alt="Coresbond"
-            className="h-12 object-contain"
+            className="h-12 object-contain self-center block"
           />
           <img
             src="/criterionsvg.svg"
             alt="Criterion"
-            className="h-12 object-contain"
+            className="h-12 object-contain self-center block transform -translate-y-1"
           />
           <p className="text-sm text-muted-foreground">
             This project was made by Criterion.
