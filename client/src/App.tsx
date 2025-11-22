@@ -7,6 +7,7 @@ import { ThemeProvider } from "./contexts/ThemeContext";
 import Introduction from "./pages/Introduction";
 import Questionnaire from "./pages/Questionnaire";
 import Dashboard from "./pages/Dashboard";
+import AboutUs from "./pages/AboutUs";
 
 function Router() {
   return (
@@ -15,16 +16,14 @@ function Router() {
       <Route path={"/questionnaire"} component={Questionnaire} />
       <Route path={"/dashboard"} component={Dashboard} />
       <Route path={"/404"} component={NotFound} />
+      <Route path="/about-us" component={AboutUs} />
       {/* Final fallback route */}
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
+
 
 function App() {
   return (

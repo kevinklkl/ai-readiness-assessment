@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp, Loader2, Mail, Scale } from "lucide-react";
 import { calculateResults, getReadinessLevel, getHighestRiskFactors } from "@/lib/assessment";
 import { AssessmentResults } from "@/types/questionnaire";
 import { QUESTIONS } from "@/data/questions";
@@ -24,7 +24,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   Cell,
   PieChart,
   Pie
@@ -104,18 +103,9 @@ export default function Dashboard() {
 
       // Helper function to capture an element and add it to PDF
       const captureAndAddPage = async (element: HTMLElement | null, title: string) => {
-        if (!element) {
-          console.warn(`${title} element not found`);
-          console.log("nextStepsRef.current:", nextStepsRef.current);
-          console.log("overviewRef.current:", overviewRef.current);
-          console.log("pillarsRef.current:", pillarsRef.current);
-          console.log("barRef.current:", barRef.current);
-          return;
-        }
+        if (!element) return;
 
         try {
-          console.log(`Capturing ${title}...`, element);
-          
           const canvas = await html2canvas(element, {
             scale: 1.5,
             useCORS: true,
@@ -126,83 +116,50 @@ export default function Dashboard() {
 
           const canvasWidth = canvas.width;
           const canvasHeight = canvas.height;
-          console.log(`${title} canvas size: ${canvasWidth}x${canvasHeight}`);
           
           const ratio = contentWidth / canvasWidth;
           const scaledHeight = canvasHeight * ratio;
 
-          // If content fits on one page, add it directly
           if (scaledHeight <= pageHeight - margin * 2) {
-            if (!isFirstPage) {
-              pdf.addPage();
-            }
-            
-            pdf.addImage(
-              canvas.toDataURL("image/jpeg", 0.9),
-              "JPEG",
-              margin,
-              margin,
-              contentWidth,
-              scaledHeight
-            );
+            if (!isFirstPage) pdf.addPage();
+            pdf.addImage(canvas.toDataURL("image/jpeg", 0.9), "JPEG", margin, margin, contentWidth, scaledHeight);
             isFirstPage = false;
-            console.log(`${title} added to page`);
           } else {
-            // Paginate if content is too long
             let position = 0;
             const pageHeightInCanvas = (pageHeight - margin * 2) / ratio;
             let isFirstSlice = true;
 
             while (position < canvasHeight) {
               const sliceHeight = Math.min(pageHeightInCanvas, canvasHeight - position);
-              
               const sliceCanvas = document.createElement("canvas");
               sliceCanvas.width = canvasWidth;
               sliceCanvas.height = sliceHeight;
 
               const ctx = sliceCanvas.getContext("2d");
               if (ctx) {
-                ctx.drawImage(
-                  canvas,
-                  0, position,
-                  canvasWidth, sliceHeight,
-                  0, 0,
-                  canvasWidth, sliceHeight
-                );
+                ctx.drawImage(canvas, 0, position, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
               }
 
               const sliceImgData = sliceCanvas.toDataURL("image/jpeg", 0.9);
               const sliceHeightMm = sliceHeight * ratio;
 
-              if (!isFirstPage || !isFirstSlice) {
-                pdf.addPage();
-              }
-              
+              if (!isFirstPage || !isFirstSlice) pdf.addPage();
               pdf.addImage(sliceImgData, "JPEG", margin, margin, contentWidth, sliceHeightMm);
               
               position += sliceHeight;
               isFirstSlice = false;
               isFirstPage = false;
             }
-            
-            console.log(`${title} added across multiple pages`);
           }
         } catch (error) {
           console.error(`Failed to capture ${title}:`, error);
         }
       };
 
-      // Page 1: Overview (Overall Score + Radar Chart)
       await captureAndAddPage(overviewRef.current, "Overview & Radar");
-
-      // Page 2: Pillar Score Cards
       await captureAndAddPage(pillarsRef.current, "Pillar Scores");
-
-      // Page 3: Bar Chart
       await captureAndAddPage(barRef.current, "Bar Chart");
 
-      // Page 4+: Next Steps groups (one page per 3 items with page breaks)
-      // Use the same filter as the UI to find incomplete pillars so refs/indexing match
       const incompletePillarsForExport = results.pillarScores
         .filter(ps => ps.pillar !== "EU AI Act Compliance" && ps.percentage < 100)
         .sort((a, b) => a.percentage - b.percentage);
@@ -210,22 +167,12 @@ export default function Dashboard() {
 
       for (let i = 0; i < numGroups; i++) {
         if (nextStepsGroups.current[i]) {
-          console.log(`Exporting Next Steps group ${i + 1} of ${numGroups}`);
           await captureAndAddPage(nextStepsGroups.current[i], `Next Steps Group ${i + 1}`);
-        } else {
-          console.warn(`Next steps group ${i} missing in DOM during export`);
         }
       }
 
-      // Capture EU AI Act risks if present
-      if (risksRef.current) {
-        await captureAndAddPage(risksRef.current, "EU AI Act Risks");
-      }
-
-      // Disclaimer
-      if (disclaimerRef.current) {
-        await captureAndAddPage(disclaimerRef.current, "Disclaimer");
-      }
+      if (risksRef.current) await captureAndAddPage(risksRef.current, "EU AI Act Risks");
+      if (disclaimerRef.current) await captureAndAddPage(disclaimerRef.current, "Disclaimer");
 
       const filename = `ai-readiness-dashboard-${new Date().toISOString().split("T")[0]}.pdf`;
       pdf.save(filename);
@@ -253,7 +200,6 @@ export default function Dashboard() {
 
   const readinessInfo = getReadinessLevel(results.overallPercentage);
   
-  // Prepare data for radar chart
   const radarData = results.pillarScores
     .filter(ps => ps.pillar !== "EU AI Act Compliance")
     .map(ps => ({
@@ -262,11 +208,9 @@ export default function Dashboard() {
       fullName: ps.pillar
     }));
 
-  // Prepare data for bar chart (excluding EU AI Act Compliance)
   const barData = results.pillarScores
     .filter(ps => ps.pillar !== "EU AI Act Compliance")
     .map(ps => ({
-      // Keep full text so mobile users see complete labels
       name: ps.pillar,
       score: ps.percentage,
       fullName: ps.pillar
@@ -274,12 +218,10 @@ export default function Dashboard() {
   const forceDesktopForExport = exportMode;
   const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640 && !forceDesktopForExport;
 
-  // Wrap long radar labels so they stay readable on small screens
   const wrapLabel = (label: string, maxLength = 16) => {
     const words = label.split(" ");
     const lines: string[] = [];
     let current = "";
-
     for (const word of words) {
       const next = current ? `${current} ${word}` : word;
       if (next.length > maxLength && current) {
@@ -289,7 +231,6 @@ export default function Dashboard() {
         current = next;
       }
     }
-
     if (current) lines.push(current);
     return lines;
   };
@@ -311,26 +252,20 @@ export default function Dashboard() {
     );
   };
 
-  // Function to get gradient color from red (0%) to dark green (100%)
   const getGradientColor = (percentage: number) => {
-    // Red to Dark Green gradient: 0% = red, 50% = orange/yellow, 100% = dark green
     if (percentage <= 50) {
-      // Red to Orange: 0% -> 50%
       const ratio = percentage / 50;
-      const hue = 0 + ratio * 30; // 0 (red) to 30 (orange)
+      const hue = 0 + ratio * 30;
       return `hsl(${hue}, 100%, 50%)`;
     } else {
-      // Orange to Dark Green: 50% -> 100%
       const ratio = (percentage - 50) / 50;
-      const hue = 30 + ratio * 90; // 30 (orange) to 120 (green)
-      const lightness = 50 - ratio * 15; // 50% to 35% (darker)
+      const hue = 30 + ratio * 90;
+      const lightness = 50 - ratio * 15;
       return `hsl(${hue}, 70%, ${lightness}%)`;
     }
   };
 
-  // Color palette based on score (green to red) for charts
   const BAR_COLOR = '#2f4ab8';
-  // Compute risk factors and next-steps lists once to avoid inline IIFEs inside JSX
   const riskFactors = getHighestRiskFactors(results.responses);
   const responseMap = new Map(results.responses.map(r => [r.questionId, r.answer]));
   const incompletePillars = results.pillarScores
@@ -356,30 +291,22 @@ export default function Dashboard() {
                 variant="outline"
                 disabled={isExporting}
                 className="min-w-[120px]"
-                aria-busy={isExporting}
               >
                 {isExporting ? (
                   <>
-                    <Loader2
-                      className="w-4 h-4 mr-2"
-                      style={{ animation: "spin 1.5s linear infinite" }}
-                    />
-                    Exporting...
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Exporting...
                   </>
                 ) : (
                   <>
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
+                    <Download className="w-4 h-4 mr-2" /> Export
                   </>
                 )}
               </Button>
               <Button onClick={handleReset} variant="outline">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Reset
+                <RotateCcw className="w-4 h-4 mr-2" /> Reset
               </Button>
               <Button onClick={() => setLocation("/")} variant="default">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Home
+                <ArrowLeft className="w-4 h-4 mr-2" /> Home
               </Button>
             </div>
           </div>
@@ -393,96 +320,93 @@ export default function Dashboard() {
       >
         <div className="max-w-7xl mx-auto space-y-8">
           <div ref={overviewRef} className="space-y-8">
-          {/* Overall Score Card */}
-          <Card className="border-2">
-            <CardHeader>
-              <CardTitle className="text-2xl">Overall AI Readiness</CardTitle>
-              <CardDescription>Your organization's comprehensive AI maturity score</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`grid gap-6 items-start lg:grid-cols-[1.4fr_0.9fr] lg:grid-rows-[auto_auto] lg:gap-8 ${exportMode ? "grid-cols-[1.4fr_0.9fr] grid-rows-[auto_auto]" : ""}`}
-              >
-                <div className={`order-1 space-y-4 ${exportMode ? "" : "lg:col-start-1 lg:row-start-1"}`}>
-                  <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:gap-3">
-                    <span className="text-6xl font-bold text-foreground leading-none">
-                      {results.overallPercentage.toFixed(1)}%
-                    </span>
-                    <span className={`text-2xl font-semibold leading-none ${readinessInfo.color}`}>
-                      {readinessInfo.status}
-                    </span>
+            {/* Overall Score Card */}
+            <Card className="border-2">
+              <CardHeader>
+                <CardTitle className="text-2xl">Overall AI Readiness</CardTitle>
+                <CardDescription>Your organization's comprehensive AI maturity score</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className={`grid gap-6 items-start lg:grid-cols-[1.4fr_0.9fr] lg:grid-rows-[auto_auto] lg:gap-8 ${exportMode ? "grid-cols-[1.4fr_0.9fr] grid-rows-[auto_auto]" : ""}`}>
+                  <div className={`order-1 space-y-4 ${exportMode ? "" : "lg:col-start-1 lg:row-start-1"}`}>
+                    <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-end sm:gap-3">
+                      <span className="text-6xl font-bold text-foreground leading-none">
+                        {results.overallPercentage.toFixed(1)}%
+                      </span>
+                      <span className={`text-2xl font-semibold leading-none ${readinessInfo.color}`}>
+                        {readinessInfo.status}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground text-lg">{readinessInfo.description}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Total Score: {results.overallScore} / {results.pillarScores.reduce((sum, ps) => sum + ps.maxScore, 0)} points
+                    </p>
                   </div>
-                  <p className="text-muted-foreground text-lg">{readinessInfo.description}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Total Score: {results.overallScore} / {results.pillarScores.reduce((sum, ps) => sum + ps.maxScore, 0)} points
-                  </p>
-                </div>
 
-                {/* Simple pie chart for overall score */}
-                <div className={`order-2 flex justify-center ${exportMode ? "col-start-2 row-start-1 row-span-2 justify-end self-center" : "lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:justify-end lg:self-center"}`}>
-                  <div className="w-64 h-64">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: "Achieved", value: results.overallPercentage },
-                            { name: "Remaining", value: 100 - results.overallPercentage }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={60}
-                          outerRadius={100}
-                          paddingAngle={2}
-                          dataKey="value"
-                        >
-                          <Cell fill={getGradientColor(results.overallPercentage)} />
-                          <Cell fill="#eceff4" />
-                        </Pie>
-                      </PieChart>
-                    </ResponsiveContainer>
+                  {/* Simple pie chart for overall score */}
+                  <div className={`order-2 flex justify-center ${exportMode ? "col-start-2 row-start-1 row-span-2 justify-end self-center" : "lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:justify-end lg:self-center"}`}>
+                    <div className="w-64 h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: "Achieved", value: results.overallPercentage },
+                              { name: "Remaining", value: 100 - results.overallPercentage }
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={100}
+                            paddingAngle={2}
+                            dataKey="value"
+                          >
+                            <Cell fill={getGradientColor(results.overallPercentage)} />
+                            <Cell fill="#eceff4" />
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* EU AI Act Status */}
+                  <div className={`order-3 border-t pt-3 ${exportMode ? "col-start-1 row-start-2" : "lg:col-start-1 lg:row-start-2 lg:border-t lg:pt-3 lg:mt-2"}`}>
+                    <p className="text-sm font-semibold text-muted-foreground mb-2">EU AI Act Compliance:</p>
+                    <button
+                      onClick={scrollToEuSection}
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold cursor-pointer transition-all hover:scale-105 ${
+                        riskFactors.highestRisk === "Critical Risk" ? "bg-red-100 text-red-900 dark:bg-red-900/20 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/30" :
+                        riskFactors.highestRisk === "Important Risk" ? "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/30" :
+                        riskFactors.highestRisk === "Minimal Risk" ? "bg-orange-100 text-orange-900 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/30" :
+                        "bg-green-100 text-green-900 dark:bg-green-900/20 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/30"
+                      }`}
+                    >
+                      {riskFactors.highestRisk}
+                    </button>
                   </div>
                 </div>
+              </CardContent>
+            </Card>
 
-                {/* EU AI Act Status */}
-                <div className={`order-3 border-t pt-3 ${exportMode ? "col-start-1 row-start-2" : "lg:col-start-1 lg:row-start-2 lg:border-t lg:pt-3 lg:mt-2"}`}>
-                  <p className="text-sm font-semibold text-muted-foreground mb-2">EU AI Act Compliance:</p>
-                  <button
-                    onClick={scrollToEuSection}
-                    className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-semibold cursor-pointer transition-all hover:scale-105 ${
-                      riskFactors.highestRisk === "Critical Risk" ? "bg-red-100 text-red-900 dark:bg-red-900/20 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/30" :
-                      riskFactors.highestRisk === "Important Risk" ? "bg-yellow-100 text-yellow-900 dark:bg-yellow-900/20 dark:text-yellow-300 hover:bg-yellow-200 dark:hover:bg-yellow-900/30" :
-                      riskFactors.highestRisk === "Minimal Risk" ? "bg-orange-100 text-orange-900 dark:bg-orange-900/20 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/30" :
-                      "bg-green-100 text-green-900 dark:bg-green-900/20 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/30"
-                    }`}
-                  >
-                    {riskFactors.highestRisk}
-                  </button>
+            {/* Radar Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Multi-Dimensional Readiness View</CardTitle>
+                <CardDescription>Comparative analysis across all assessment pillars (excluding EU AI Act Compliance)</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="h-[600px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart data={radarData} margin={{ top: 60, right: 60, bottom: 60, left: 60 }}>
+                      <PolarGrid stroke="#e7e9f6" />
+                      <PolarAngleAxis dataKey="pillar" tick={renderPolarAngleTick} />
+                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#6c6f8c" }} />
+                      <Radar name="Readiness Score" dataKey="score" stroke="#2f4ab8" fill="#2f4ab8" fillOpacity={0.3} />
+                      <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
+                    </RadarChart>
+                  </ResponsiveContainer>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Radar Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Multi-Dimensional Readiness View</CardTitle>
-              <CardDescription>Comparative analysis across all assessment pillars (excluding EU AI Act Compliance)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[600px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData} margin={{ top: 60, right: 60, bottom: 60, left: 60 }}>
-                    <PolarGrid stroke="#e7e9f6" />
-                    <PolarAngleAxis dataKey="pillar" tick={renderPolarAngleTick} />
-                    <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#6c6f8c" }} />
-                    <Radar name="Readiness Score" dataKey="score" stroke="#2f4ab8" fill="#2f4ab8" fillOpacity={0.3} />
-                    <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
-                  </RadarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
+              </CardContent>
+            </Card>
           </div>
 
           {/* Bar Chart */}
@@ -529,7 +453,7 @@ export default function Dashboard() {
           >
             {results.pillarScores
               .filter(ps => ps.pillar !== "EU AI Act Compliance")
-              .map((pillarScore, index) => {
+              .map((pillarScore) => {
                 const statusInfo = getReadinessLevel(pillarScore.percentage);
                 return (
                   <Card
@@ -568,10 +492,8 @@ export default function Dashboard() {
                 <CardDescription>Click on each category to see which questions need improvement</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-              {/* Collapsible Pillars - grouped 3 per section */}
               {incompletePillars.length > 0 && (
-                 <div className="space-y-6">
-                  {/* Group pillars into sets of 3 */}
+                  <div className="space-y-6">
                   {Array.from({ length: Math.ceil(incompletePillars.length / 3) }).map((_, pageIdx) => {
                     const start = pageIdx * 3;
                     const end = Math.min(start + 3, incompletePillars.length);
@@ -589,45 +511,45 @@ export default function Dashboard() {
                         <div className="space-y-2">
                           {pillarGroup.map((ps, localIndex) => {
                             const globalIndex = start + localIndex;
-                      const pillarQuestions = QUESTIONS.filter(q => q.pillar === ps.pillar && q.scoring === "1 to 5");
-                      const questionsNot5 = pillarQuestions.filter(q => {
-                        const answer = responseMap.get(q.id);
-                        return answer !== 5;
-                      });
-                      const isOpen = forceExpandAll || expandedPillar === ps.pillar;
+                            const pillarQuestions = QUESTIONS.filter(q => q.pillar === ps.pillar && q.scoring === "1 to 5");
+                            const questionsNot5 = pillarQuestions.filter(q => {
+                              const answer = responseMap.get(q.id);
+                              return answer !== 5;
+                            });
+                            const isOpen = forceExpandAll || expandedPillar === ps.pillar;
 
-                      return (
-                        <div
-                          key={ps.pillar}
-                          className="border rounded-lg bg-card overflow-hidden export-next-step"
-                          style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}
-                        >
-                          <button onClick={() => setExpandedPillar(isOpen ? null : ps.pillar)} className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
-                            <div className="flex items-start gap-4 flex-1 text-left">
-                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs">{globalIndex + 1}</div>
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-foreground">{ps.pillar}</h4>
-                                <p className="text-sm text-muted-foreground">{ps.percentage.toFixed(1)}% ({ps.score}/{ps.maxScore} points) • {questionsNot5.length} question{questionsNot5.length !== 1 ? 's' : ''} below 5</p>
-                              </div>
-                            </div>
-                            {isOpen ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
-                          </button>
-
-                          {isOpen && questionsNot5.length > 0 && (
-                            <div className="border-t bg-muted/30 p-4 space-y-3">
-                              {questionsNot5.map((q) => {
-                                const answer = responseMap.get(q.id);
-                                return (
-                                  <div key={q.id} className="text-sm space-y-1">
-                                    <p className="font-medium text-foreground">{q.question}</p>
-                                    <p className="text-xs text-muted-foreground">Current score: {answer}/5 • Indicator: {q.indicator}</p>
+                            return (
+                              <div
+                                key={ps.pillar}
+                                className="border rounded-lg bg-card overflow-hidden export-next-step"
+                                style={exportMode ? { breakInside: "avoid", pageBreakInside: "avoid" as any } : undefined}
+                              >
+                                <button onClick={() => setExpandedPillar(isOpen ? null : ps.pillar)} className="w-full p-4 flex items-center justify-between hover:bg-muted/50 transition-colors">
+                                  <div className="flex items-start gap-4 flex-1 text-left">
+                                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-semibold text-xs">{globalIndex + 1}</div>
+                                    <div className="flex-1">
+                                      <h4 className="font-semibold text-foreground">{ps.pillar}</h4>
+                                      <p className="text-sm text-muted-foreground">{ps.percentage.toFixed(1)}% ({ps.score}/{ps.maxScore} points) • {questionsNot5.length} question{questionsNot5.length !== 1 ? 's' : ''} below 5</p>
+                                    </div>
                                   </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
+                                  {isOpen ? <ChevronUp className="w-5 h-5 text-muted-foreground" /> : <ChevronDown className="w-5 h-5 text-muted-foreground" />}
+                                </button>
+
+                                {isOpen && questionsNot5.length > 0 && (
+                                  <div className="border-t bg-muted/30 p-4 space-y-3">
+                                    {questionsNot5.map((q) => {
+                                      const answer = responseMap.get(q.id);
+                                      return (
+                                        <div key={q.id} className="text-sm space-y-1">
+                                          <p className="font-medium text-foreground">{q.question}</p>
+                                          <p className="text-xs text-muted-foreground">Current score: {answer}/5 • Indicator: {q.indicator}</p>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
                           })}
                         </div>
                       </div>
@@ -692,7 +614,6 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Perfect Score Message */}
               {incompletePillars.length === 0 && !hasRisks && (
                 <p className="text-green-700 dark:text-green-300 font-semibold">✅ Excellent! All readiness pillars are at 100% and no EU AI Act risks identified. Your organization is fully prepared.</p>
               )}
@@ -704,18 +625,52 @@ export default function Dashboard() {
             </Card>
           </div>
 
-          {/* Disclaimer */}
-          <section ref={disclaimerRef} className="container">
-            <div className="max-w-7xl mx-auto mt-8">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900 shadow-sm">
+          {/* Final Action & Disclaimer Section (UPDATED) */}
+          <div ref={disclaimerRef} className="grid md:grid-cols-2 gap-6 mt-8 print:break-inside-avoid">
+            {/* Legal Disclaimer Card */}
+            <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-900/10">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-amber-800 dark:text-amber-500">
+                  <Scale className="w-5 h-5" />
+                  Legal Disclaimer
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground leading-relaxed">
                 <p>
-                  <span className="font-semibold">Disclaimer:</span> This framework does not replace or supersede the legal requirements of the EU AI Act. Organizations remain fully responsible for reviewing and complying with all applicable regulations. <span className="font-semibold">This is only a recommendation.</span>
+                  This assessment framework provides a preliminary evaluation of your organization's AI readiness and alignment with the EU AI Act. <strong>It does not constitute legal advice.</strong>
                 </p>
-              </div>
-            </div>
-          </section>
+                <p className="mt-2">
+                  Organizations remain fully responsible for reviewing and complying with all applicable regulations. We strongly recommend consulting with legal experts for definitive compliance verification.
+                </p>
+              </CardContent>
+            </Card>
 
-          {/* EU AI Act Section with ref */}
+            {/* Contact & Support Card */}
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center gap-2 text-primary">
+                  <Mail className="w-5 h-5" />
+                  Feedback & Support
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm text-muted-foreground leading-relaxed">
+                <p>
+                  Do you have questions about your results, suggestions for the tool, or need further assistance with your AI governance strategy?
+                </p>
+                <div className="mt-4">
+                  <Button
+                    variant="outline"
+                    className="gap-2 w-full sm:w-auto border-primary/20 hover:bg-primary/10 hover:text-primary"
+                    onClick={() => window.location.href = 'mailto:ligia@tlu.ee'}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Contact Us: ligia@tlu.ee
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <div ref={euAiSectionRef}></div>
         </div>
       </main>
@@ -723,4 +678,3 @@ export default function Dashboard() {
     </div>
   );
 }
-

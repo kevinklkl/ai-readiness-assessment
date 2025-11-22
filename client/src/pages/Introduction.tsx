@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, CheckCircle2, Clock, FileText } from "lucide-react";
+import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowRight, CheckCircle2, Clock, FileText, Users } from "lucide-react";
 import Footer from "@/components/Footer";
 
 export default function Introduction() {
@@ -35,11 +35,20 @@ export default function Introduction() {
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
               A comprehensive assessment designed to evaluate your organization's readiness for AI adoption across strategy, governance, data, people, and compliance.
             </p>
-            <div className="flex gap-4 justify-center pt-4">
+            
+            {/* MAIN BUTTONS */}
+            <div className="flex gap-4 justify-center pt-4 flex-wrap">
               <Button size="lg" onClick={() => setLocation("/questionnaire")} className="text-lg px-8">
                 Start Assessment
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
+
+              {/* BUTTON UPDATED TO ENGLISH */}
+              <Button size="lg" variant="secondary" onClick={() => setLocation("/about-us")}>
+                <Users className="w-5 h-5 mr-2" />
+                About Us
+              </Button>
+
               <Button size="lg" variant="outline" onClick={() => window.scrollTo({ top: 600, behavior: "smooth" })}>
                 Learn More
               </Button>
