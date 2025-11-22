@@ -13,7 +13,7 @@ export default function AboutUs() {
       {/* --- HEADER SECTION --- */}
       <header className="bg-muted/30 w-full border-b">
         <div className="container py-12 text-center">
-          <div className="flex justify-center">
+          <div className="flex justify-start">
             <Button
               variant="default"
               onClick={() => setLocation("/")}
