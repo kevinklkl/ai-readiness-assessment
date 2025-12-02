@@ -98,10 +98,12 @@ export default function Dashboard() {
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
       const margin = 10;
+      const sectionSpacing = 6;
       const contentWidth = pageWidth - margin * 2;
-      let isFirstPage = true;
+      const contentHeight = pageHeight - margin * 2;
+      let cursorY = margin;
 
-      // Helper function to capture an element and add it to PDF
+      // Helper function to capture an element and add it to the current PDF page (or a new one if needed)
       const captureAndAddPage = async (element: HTMLElement | null, title: string) => {
         if (!element) return;
 
@@ -118,39 +120,25 @@ export default function Dashboard() {
           const canvasHeight = canvas.height;
           
           const ratio = contentWidth / canvasWidth;
-          const scaledHeight = canvasHeight * ratio;
+          let scaledWidth = contentWidth;
+          let scaledHeight = canvasHeight * ratio;
 
-          if (scaledHeight <= pageHeight - margin * 2) {
-            if (!isFirstPage) pdf.addPage();
-            pdf.addImage(canvas.toDataURL("image/jpeg", 0.9), "JPEG", margin, margin, contentWidth, scaledHeight);
-            isFirstPage = false;
-          } else {
-            let position = 0;
-            const pageHeightInCanvas = (pageHeight - margin * 2) / ratio;
-            let isFirstSlice = true;
-
-            while (position < canvasHeight) {
-              const sliceHeight = Math.min(pageHeightInCanvas, canvasHeight - position);
-              const sliceCanvas = document.createElement("canvas");
-              sliceCanvas.width = canvasWidth;
-              sliceCanvas.height = sliceHeight;
-
-              const ctx = sliceCanvas.getContext("2d");
-              if (ctx) {
-                ctx.drawImage(canvas, 0, position, canvasWidth, sliceHeight, 0, 0, canvasWidth, sliceHeight);
-              }
-
-              const sliceImgData = sliceCanvas.toDataURL("image/jpeg", 0.9);
-              const sliceHeightMm = sliceHeight * ratio;
-
-              if (!isFirstPage || !isFirstSlice) pdf.addPage();
-              pdf.addImage(sliceImgData, "JPEG", margin, margin, contentWidth, sliceHeightMm);
-              
-              position += sliceHeight;
-              isFirstSlice = false;
-              isFirstPage = false;
-            }
+          // If the scaled element is taller than available content height, shrink it to fit on a single page
+          if (scaledHeight > contentHeight) {
+            const fitRatio = contentHeight / canvasHeight;
+            scaledWidth = canvasWidth * fitRatio;
+            scaledHeight = contentHeight;
           }
+
+          // Move to a new page if there isn't enough room for the full element
+          if (cursorY + scaledHeight > pageHeight - margin) {
+            pdf.addPage();
+            cursorY = margin;
+          }
+
+          const xPosition = margin + (contentWidth - scaledWidth) / 2;
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.9), "JPEG", xPosition, cursorY, scaledWidth, scaledHeight);
+          cursorY += scaledHeight + sectionSpacing;
         } catch (error) {
           console.error(`Failed to capture ${title}:`, error);
         }
