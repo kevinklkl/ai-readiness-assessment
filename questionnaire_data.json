@@ -5,13 +5,7 @@
         "pillar": "Strategy & Value",
         "indicator": "AI strategy linked to OKRs",
         "scoring": "1 to 5",
-        "question": "Leadership understands AI's potentials and limitations"
-      },
-      {
-        "pillar": "Strategy & Value",
-        "indicator": "AI strategy linked to OKRs",
-        "scoring": "1 to 5",
-        "question": "Are the AI projects in line, and part of the organizational strategy not just siloed pilots."
+        "question": "Leadership has a clear grasp of both the opportunities and constraints presented by AI adoption."
       },
       {
         "pillar": "Strategy & Value",
@@ -23,7 +17,13 @@
         "pillar": "Strategy & Value",
         "indicator": "Use-case portfolio & prioritization",
         "scoring": "1 to 5",
-        "question": "There has been prioritization of these use cases through brainstorming and workshop sessions based on objectives, business impact, and feasibility"
+        "question": "There has been prioritization of these use cases through brainstorming and workshop sessions based on objectives, business impact, and feasibility."
+      },
+      {
+        "pillar": "Strategy & Value",
+        "indicator": "Time-to-value process defined",
+        "scoring": "1 to 5",
+        "question": "There is an AI roadmap linking AI projects to measurable ROI outcomes."
       },
       {
         "pillar": "Strategy & Value",
@@ -33,29 +33,29 @@
       },
       {
         "pillar": "Strategy & Value",
-        "indicator": "Time-to-value process defined",
+        "indicator": "AI strategy linked to OKRs",
         "scoring": "1 to 5",
-        "question": "There is an AI roadmap linking AI projects to measurable ROI outcomes."
+        "question": "The AI projects are in line, and part of the organizational strategy not just siloed pilots."
       }
     ],
     "Governance, Ethics & Compliance": [
       {
         "pillar": "Governance, Ethics & Compliance",
-        "indicator": "Human-in-the-loop for high-risk",
+        "indicator": "Data governance team",
         "scoring": "1 to 5",
-        "question": "If this affects people, who reviews/overrides the decision and is it in the workflow?"
+        "question": "There is a data governance team with roles clearly defined."
       },
       {
         "pillar": "Governance, Ethics & Compliance",
         "indicator": "Policy & documentation (DPIA/RA)",
         "scoring": "1 to 5",
-        "question": "Is there a data governance framework in place?"
+        "question": "The company has a data governance framework in place."
       },
       {
         "pillar": "Governance, Ethics & Compliance",
-        "indicator": "Data governance team",
+        "indicator": "Human-in-the-loop for high-risk",
         "scoring": "1 to 5",
-        "question": "There is a data governance team with roles clearly defined."
+        "question": "If the AI makes a recommendation that affects people, is there an assigned person responsible for reviewing and approving it?"
       }
     ],
     "Data Foundations": [
@@ -63,7 +63,7 @@
         "pillar": "Data Foundations",
         "indicator": "Data catalog & ownership defined",
         "scoring": "1 to 5",
-        "question": "Do we know which datasets/documents we will use and who owns them?"
+        "question": "Do we know which datasets/documents we will use for AI training and/or usage and who owns them?"
       },
       {
         "pillar": "Data Foundations",
@@ -75,40 +75,10 @@
         "pillar": "Data Foundations",
         "indicator": "Quality SLAs & monitoring",
         "scoring": "1 to 5",
-        "question": "Are data quality management processes established and effectively implemented?"
-      },
-      {
-        "pillar": "Data Foundations",
-        "indicator": "RAG-ready content/corpus (if relevant)",
-        "scoring": "1 to 5",
-        "question": "Data is cleaned, structured, and up to date."
+        "question": "Are robust data quality management processes in place to ensure that data is consistently cleaned, structured, and kept up to date?"
       }
     ],
     "People, Skills & Culture": [
-      {
-        "pillar": "People, Skills & Culture",
-        "indicator": "Role coverage (product/data/ML/risk)",
-        "scoring": "1 to 5",
-        "question": "Have key roles for AI implementation been formally designated: including a product owner, data/ML engineer, and risk or compliance officer?"
-      },
-      {
-        "pillar": "People, Skills & Culture",
-        "indicator": "Training & enablement programs",
-        "scoring": "1 to 5",
-        "question": "Does the team have a clear understanding of the existing systems, tools, and workflows relevant to the AI project?"
-      },
-      {
-        "pillar": "People, Skills & Culture",
-        "indicator": "Adoption & change mgmt",
-        "scoring": "1 to 5",
-        "question": "Are the primary user groups defined, and is a support or training plan in place to ensure effective use?"
-      },
-      {
-        "pillar": "People, Skills & Culture",
-        "indicator": "Usage/sentiment measurement",
-        "scoring": "1 to 5",
-        "question": "Is there a system in place to monitor user activity and collect timely feedback during early implementation?"
-      },
       {
         "pillar": "People, Skills & Culture",
         "indicator": "AI Company Culture",
@@ -117,9 +87,15 @@
       },
       {
         "pillar": "People, Skills & Culture",
-        "indicator": "Cross‑functional delivery teams",
+        "indicator": "Cross-functional delivery teams",
         "scoring": "1 to 5",
-        "question": "Are there frequent cross department meetings?"
+        "question": "Are there frequent cross department meetings about the application of AI in the company?"
+      },
+      {
+        "pillar": "People, Skills & Culture",
+        "indicator": "Role coverage (product/data/ML/risk)",
+        "scoring": "1 to 5",
+        "question": "Have key roles for AI implementation been formally designated: including a product owner, data/ML engineer, and risk or compliance officer?"
       }
     ],
     "Data, Platforms & MLOps": [
@@ -139,21 +115,33 @@
         "pillar": "Data, Platforms & MLOps",
         "indicator": "Monitoring (drift/quality/incidents)",
         "scoring": "1 to 5",
-        "question": "Are there systems in place to verify both the AI's predictive accuracy and its immediate impact on business outcomes?"
+        "question": "Are there methods in place to verify both the AI's predictive accuracy and its immediate impact on business outcomes?"
+      },
+      {
+        "pillar": "Data, Platforms & MLOps",
+        "indicator": "Training & enablement programs",
+        "scoring": "1 to 5",
+        "question": "Does the team responsible for MLOps have a clear understanding of the existing systems, tools, and workflows relevant to the AI project?"
       }
     ],
     "Process & Stakeholders": [
       {
         "pillar": "Process & Stakeholders",
-        "indicator": "Customer/citizen engagement loops",
+        "indicator": "Adoption & change mgmt",
         "scoring": "1 to 5",
-        "question": "Have we spoken to at least 3 end users and agreed success criteria?"
+        "question": "Do you know your primary user group of the AI tool and have prepared the needed training/support?"
+      },
+      {
+        "pillar": "Process & Stakeholders",
+        "indicator": "Usage/sentiment measurement",
+        "scoring": "1 to 5",
+        "question": "There is a defined process (e.g., short surveys, check-ins, user activity) to gather early user feedback for early implementation."
       },
       {
         "pillar": "Process & Stakeholders",
         "indicator": "Stakeholder reviews in lifecycle",
         "scoring": "1 to 5",
-        "question": "Are end users involved in defining what success looks like for the AI, with at least three consulted so far?"
+        "question": "Have at least three end users of the AI tool been consulted to collaboratively define the success criteria for the AI?"
       }
     ],
     "EU AI Act Compliance": [
@@ -161,25 +149,25 @@
         "pillar": "EU AI Act Compliance",
         "indicator": "Prohibited Practices (Fatal Risk)",
         "scoring": "Yes/No",
-        "question": "Does the AI system utilize psychological manipulation or similar techniques to exploit user vulnerabilities, such as an AI in a mobile app's UI promoting harmful addiction, a design tool subtly changing product information to pressure a vulnerable customer into an immediate purchase, or a worker management tool exploiting employee stress to coerce acceptance of unfavorable work hours?"
+        "question": "Does the AI tool you are implementing utilize psychological manipulation or similar techniques to exploit user vulnerabilities?\n\nExamples: An AI in a mobile app's UI promoting harmful addiction, a design tool subtly changing product information to pressure a vulnerable customer into an immediate purchase, or a worker management tool exploiting employee stress to coerce acceptance of unfavorable work hours?"
       },
       {
         "pillar": "EU AI Act Compliance",
         "indicator": "Prohibited Practices (Fatal Risk)",
         "scoring": "Yes/No",
-        "question": "Is the AI system used to perform real-time facial or biometric identification of people in operational settings, such as live facial recognition of customers in a smart store, tracking workers with camera systems on a factory floor, or using real-time biometrics in public installations for non-consensual profiling?"
+        "question": "Does the AI tool you are implementing perform real-time facial or biometric identification of people in operational settings?\n\nExamples: Live facial recognition of customers in a smart store, tracking workers with camera systems on a factory floor, or using real-time biometrics in public installations for non-consensual profiling?"
       },
       {
         "pillar": "EU AI Act Compliance",
         "indicator": "Prohibited Practices (Fatal Risk)",
         "scoring": "Yes/No",
-        "question": "In HR, artificial intelligence hiring systems (AHSs) often rely on training data that reflects historical hiring patterns, which can encode existing biases.  For example, Amazon developed an AI recruiting tool trained on resumes submitted over a ten-year period, which were predominantly from men. As a result, the algorithm learned to downrank resumes containing words associated with women, such as \"women's\" or \"female,\" and even rejected applicants from all-women's colleges, effectively discriminating against qualified female candidates. Does the system employ any technique that could result in unfair discrimination in HR processes (hiring, performance) or in product recommendation algorithms?"
+        "question": "Does the AI tool employ any technique that could result in unfair discrimination in HR processes (hiring, performance) or in product recommendation algorithms?"
       },
       {
         "pillar": "EU AI Act Compliance",
         "indicator": "Prohibited Practices (Fatal Risk)",
         "scoring": "Yes/No",
-        "question": "Does the AI system process biometric data (e.g., fingerprints, voice patterns, gaze tracking) to infer and categorize sensitive employee or user traits such as emotional state, political opinions, or health risk in products, design testing, or personnel monitoring?"
+        "question": "Does your AI system process biometric data (e.g., fingerprints, voice patterns, gaze tracking) to infer and categorize sensitive employee or user traits such as emotional state, political opinions, or health risk in products, design testing, or personnel monitoring?"
       },
       {
         "pillar": "EU AI Act Compliance",
@@ -215,7 +203,7 @@
         "pillar": "EU AI Act Compliance",
         "indicator": "High-Risk Practices (Mandatory Compliance)",
         "scoring": "Yes/No",
-        "question": "Is the AI system applied to dispatch, control, or safety-critical functions where failure could lead to harm, such as in: automated vehicle control or traffic management, core production line robotics or industrial process control, or simulations used to certify structural integrity of a designed product?"
+        "question": "Does the system serve as a decision-support tool, providing data-driven insights to human professionals who retain full authority and responsibility for final judgments?"
       },
       {
         "pillar": "EU AI Act Compliance",
@@ -273,5 +261,5 @@
       }
     ]
   },
-  "total_questions": 45
+  "total_questions": 41
 }
