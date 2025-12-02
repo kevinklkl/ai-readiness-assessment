@@ -224,7 +224,7 @@ export const QUESTIONS: Question[] = [
     "pillar": "EU AI Act Compliance",
     "indicator": "High-Risk Practices (Mandatory Compliance)",
     "scoring": "Yes/No",
-    "question": "Is the AI system applied to dispatch, control, or safety-critical functions where failure could lead to harm, such as in: automated vehicle control or traffic management, core production line robotics or industrial process control, or simulations used to certify structural integrity of a designed product?",
+    "question": "Does the system serve as a decision-support tool, providing data-driven insights to human professionals who retain full authority and responsibility for final judgments?",
   },
   {
     "id": 33,
