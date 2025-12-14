@@ -12,11 +12,6 @@ import { jsPDF } from "jspdf";
 // @ts-ignore
 import html2canvas from "html2canvas-pro";
 import {
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -28,6 +23,20 @@ import {
   PieChart,
   Pie
 } from "recharts";
+import { Radar } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  RadialLinearScale,
+  PointElement,
+  LineElement,
+  Filler,
+  Tooltip as ChartTooltip,
+  Legend,
+  ChartData,
+  ChartOptions
+} from "chart.js";
+
+ChartJS.register(RadialLinearScale, PointElement, LineElement, Filler, ChartTooltip, Legend);
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -37,6 +46,7 @@ export default function Dashboard() {
   const [forceExpandAll, setForceExpandAll] = useState(false);
   const [exportMode, setExportMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPdfRenderMode, setIsPdfRenderMode] = useState(false);
   const overviewRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const pillarsRef = useRef<HTMLDivElement>(null);
@@ -46,6 +56,7 @@ export default function Dashboard() {
   const disclaimerRef = useRef<HTMLDivElement>(null);
   const exportRef = useRef<HTMLDivElement>(null);
   const euAiSectionRef = useRef<HTMLDivElement>(null);
+  const radarRef = useRef<ChartJS<"radar"> | undefined>(undefined);
 
   const scrollToEuSection = () => {
     const el = euAiSectionRef.current;
@@ -55,6 +66,17 @@ export default function Dashboard() {
     const top = el.getBoundingClientRect().top + window.pageYOffset - headerHeight - 8;
     window.scrollTo({ top, behavior: 'smooth' });
   };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    (window as any).__pdf_ready__ = false;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("renderMode") === "pdf") {
+      setIsPdfRenderMode(true);
+      setExportMode(true);
+      setForceExpandAll(true);
+    }
+  }, []);
 
   useEffect(() => {
     const savedResults = localStorage.getItem("assessment_results");
@@ -75,6 +97,26 @@ export default function Dashboard() {
     }
   }, [setLocation]);
 
+  useEffect(() => {
+    if (!isPdfRenderMode || !results) return;
+    const timer = setTimeout(() => {
+      radarRef.current?.resize();
+      (window as any).__pdf_ready__ = true;
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [isPdfRenderMode, results]);
+
+  useEffect(() => {
+    const handleResize = () => radarRef.current?.resize();
+    handleResize();
+    const timeout = setTimeout(handleResize, 200);
+    window.addEventListener("resize", handleResize);
+    return () => {
+      clearTimeout(timeout);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [exportMode, results?.pillarScores.length]);
+
   const handleReset = () => {
     if (confirm("Are you sure you want to reset your assessment? This will delete all your responses.")) {
       localStorage.removeItem("questionnaire_responses");
@@ -87,11 +129,10 @@ export default function Dashboard() {
   const handleExport = async () => {
     if (!results || isExporting) return;
 
-    // Expand all sections before export
     setIsExporting(true);
     setForceExpandAll(true);
     setExportMode(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 600));
 
     try {
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
@@ -103,17 +144,18 @@ export default function Dashboard() {
       const contentHeight = pageHeight - margin * 2;
       let cursorY = margin;
 
-      // Helper function to capture an element and add it to the current PDF page (or a new one if needed)
       const captureAndAddPage = async (element: HTMLElement | null, title: string) => {
         if (!element) return;
 
         try {
           const canvas = await html2canvas(element, {
-            scale: 1.5,
+            scale: 1.6,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            backgroundColor: "#ffffff"
+            backgroundColor: "#ffffff",
+            scrollX: 0,
+            scrollY: -window.scrollY
           });
 
           const canvasWidth = canvas.width;
@@ -123,21 +165,19 @@ export default function Dashboard() {
           let scaledWidth = contentWidth;
           let scaledHeight = canvasHeight * ratio;
 
-          // If the scaled element is taller than available content height, shrink it to fit on a single page
           if (scaledHeight > contentHeight) {
             const fitRatio = contentHeight / canvasHeight;
             scaledWidth = canvasWidth * fitRatio;
             scaledHeight = contentHeight;
           }
 
-          // Move to a new page if there isn't enough room for the full element
           if (cursorY + scaledHeight > pageHeight - margin) {
             pdf.addPage();
             cursorY = margin;
           }
 
           const xPosition = margin + (contentWidth - scaledWidth) / 2;
-          pdf.addImage(canvas.toDataURL("image/jpeg", 0.9), "JPEG", xPosition, cursorY, scaledWidth, scaledHeight);
+          pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", xPosition, cursorY, scaledWidth, scaledHeight);
           cursorY += scaledHeight + sectionSpacing;
         } catch (error) {
           console.error(`Failed to capture ${title}:`, error);
@@ -167,7 +207,7 @@ export default function Dashboard() {
       toast.success("PDF exported successfully");
     } catch (err) {
       console.error("PDF export failed", err);
-      toast.error("PDF export failed. See console for details.");
+      toast.error("PDF export failed. Please try again.");
     } finally {
       setIsExporting(false);
       setForceExpandAll(false);
@@ -186,26 +226,6 @@ export default function Dashboard() {
     );
   }
 
-  const readinessInfo = getReadinessLevel(results.overallPercentage);
-  
-  const radarData = results.pillarScores
-    .filter(ps => ps.pillar !== "EU AI Act Compliance")
-    .map(ps => ({
-      pillar: ps.pillar,
-      score: ps.percentage,
-      fullName: ps.pillar
-    }));
-
-  const barData = results.pillarScores
-    .filter(ps => ps.pillar !== "EU AI Act Compliance")
-    .map(ps => ({
-      name: ps.pillar,
-      score: ps.percentage,
-      fullName: ps.pillar
-    }));
-  const forceDesktopForExport = exportMode;
-  const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640 && !forceDesktopForExport;
-
   const wrapLabel = (label: string, maxLength = 16) => {
     const words = label.split(" ");
     const lines: string[] = [];
@@ -223,22 +243,98 @@ export default function Dashboard() {
     return lines;
   };
 
-  const renderPolarAngleTick = (props: any) => {
-    const { payload, x, y, textAnchor } = props;
-    const offsetY = payload?.value === "Strategy & Value" ? -10 : 0;
-    const lines = wrapLabel(payload.value);
-    return (
-      <g transform={`translate(${x},${y})`}>
-        <text x={0} y={offsetY} textAnchor={textAnchor} fill="#2c2f55" fontSize={10}>
-          {lines.map((line, idx) => (
-            <tspan key={`${line}-${idx}`} x={0} dy={idx === 0 ? 0 : 12}>
-              {line}
-            </tspan>
-          ))}
-        </text>
-      </g>
-    );
+  const readinessInfo = getReadinessLevel(results.overallPercentage);
+  
+  const radarData = results.pillarScores
+    .filter(ps => ps.pillar !== "EU AI Act Compliance")
+    .map(ps => ({
+      pillar: ps.pillar,
+      score: ps.percentage,
+      fullName: ps.pillar
+    }));
+
+  const radarChartData: ChartData<"radar"> = {
+    labels: radarData.map(item => item.fullName),
+    datasets: [
+      {
+        label: "Readiness Score",
+        data: radarData.map(item => item.score),
+        backgroundColor: "rgba(47, 74, 184, 0.25)",
+        borderColor: "#2f4ab8",
+        borderWidth: 2,
+        pointBackgroundColor: "#2f4ab8",
+        pointBorderColor: "#ffffff",
+        pointHoverBackgroundColor: "#1f3a94",
+        pointHoverBorderColor: "#ffffff",
+        pointStyle: "rectRot",
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        borderCapStyle: "butt",
+        borderJoinStyle: "miter",
+        fill: true,
+        tension: 0
+      }
+    ]
   };
+
+  const radarChartOptions: ChartOptions<"radar"> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: exportMode ? false : undefined,
+    layout: {
+      padding: 24
+    },
+    plugins: {
+      legend: {
+        display: false
+      },
+      tooltip: {
+        backgroundColor: "#ffffff",
+        titleColor: "#111827",
+        bodyColor: "#374151",
+        borderColor: "#e5e7eb",
+        borderWidth: 1,
+        displayColors: false,
+        callbacks: {
+          label: (context) => {
+            const value = context.parsed.r;
+            if (typeof value !== "number") return "";
+            return `Score: ${value.toFixed(1)}%`;
+          }
+        }
+      }
+    },
+    scales: {
+      r: {
+        min: 0,
+        max: 100,
+        beginAtZero: true,
+        angleLines: { color: "#e7e9f6" },
+        grid: { color: "#e7e9f6" },
+        ticks: {
+          backdropColor: "transparent",
+          color: "#6c6f8c",
+          stepSize: 20,
+          showLabelBackdrop: false
+        },
+        pointLabels: {
+          color: "#2c2f55",
+          font: { size: 11 },
+          callback: (label) => wrapLabel(String(label))
+        }
+      }
+    }
+  };
+
+  const barData = results.pillarScores
+    .filter(ps => ps.pillar !== "EU AI Act Compliance")
+    .map(ps => ({
+      name: ps.pillar,
+      score: ps.percentage,
+      fullName: ps.pillar
+    }));
+  const forceDesktopForExport = exportMode;
+  const isSmallScreen = typeof window !== "undefined" && window.innerWidth < 640 && !forceDesktopForExport;
 
   const getGradientColor = (percentage: number) => {
     if (percentage <= 50) {
@@ -260,6 +356,7 @@ export default function Dashboard() {
     .filter(ps => ps.pillar !== "EU AI Act Compliance" && ps.percentage < 100)
     .sort((a, b) => a.percentage - b.percentage);
   const hasRisks = riskFactors.critical.length > 0 || riskFactors.important.length > 0 || riskFactors.minimal.length > 0;
+  const radarResponsiveSize = "clamp(260px, 85vw, 520px)";
 
   return (
     <div className={`min-h-screen bg-background ${exportMode ? "export-mode" : ""}`}>
@@ -382,16 +479,26 @@ export default function Dashboard() {
                 <CardDescription>Comparative analysis across all assessment pillars (excluding EU AI Act Compliance)</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-[600px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RadarChart data={radarData} margin={{ top: 60, right: 60, bottom: 60, left: 60 }}>
-                      <PolarGrid stroke="#e7e9f6" />
-                      <PolarAngleAxis dataKey="pillar" tick={renderPolarAngleTick} />
-                      <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fill: "#6c6f8c" }} />
-                      <Radar name="Readiness Score" dataKey="score" stroke="#2f4ab8" fill="#2f4ab8" fillOpacity={0.3} />
-                      <Tooltip content={({ payload }) => { if (payload && payload.length > 0) { const data = payload[0].payload as any; return (<div className="bg-card border rounded-lg p-3 shadow-lg"><p className="font-semibold text-foreground">{data.fullName}</p><p className="text-sm text-muted-foreground">Score: {data.score.toFixed(1)}%</p></div>); } return null; }} />
-                    </RadarChart>
-                  </ResponsiveContainer>
+                <div className="relative flex items-center justify-center overflow-hidden" style={{ minHeight: exportMode ? 540 : 480 }}>
+                  <div
+                    className="w-full flex items-center justify-center mx-auto"
+                    style={{
+                      width: exportMode ? 520 : radarResponsiveSize,
+                      height: exportMode ? 520 : radarResponsiveSize,
+                      maxWidth: "100%",
+                      maxHeight: "100%",
+                      aspectRatio: "1 / 1",
+                      overflow: "hidden"
+                    }}
+                  >
+                    <Radar
+                      data={radarChartData}
+                      options={radarChartOptions}
+                      style={{ width: "100%", height: "100%" }}
+                      ref={radarRef}
+                      redraw={exportMode}
+                    />
+                  </div>
                 </div>
               </CardContent>
             </Card>
