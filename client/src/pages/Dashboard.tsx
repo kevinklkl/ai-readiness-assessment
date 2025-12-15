@@ -263,13 +263,10 @@ export default function Dashboard() {
 
     const normalizedScore = Math.max(0, Math.min(10, Math.round(npsScore)));
     const payload = {
-      npsScore: normalizedScore, // required by new backend
-      score: normalizedScore, // backwards compatibility
-      comments: npsFeedback.trim(),
-      feedback: npsFeedback.trim(),
+      npsScore: normalizedScore,
+      pageUrl: typeof window !== "undefined" ? window.location.href : "",
       sessionId: feedbackSessionId,
-      completedAt: results?.completedAt,
-      pageUrl: typeof window !== "undefined" ? window.location.href : ""
+      feedbackText: npsFeedback.trim()
     };
 
     try {
