@@ -58,8 +58,7 @@ export default function Dashboard() {
   const useSliderScale = false;
   const [npsOpen, setNpsOpen] = useState(false);
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
-  const feedbackPath =
-    (import.meta.env.VITE_FEEDBACK_PATH || "/nps-feedback").trim() || "/nps-feedback";
+  const feedbackPath = "/api/nps-feedback";
   const overviewRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const pillarsRef = useRef<HTMLDivElement>(null);
