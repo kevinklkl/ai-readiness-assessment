@@ -2,7 +2,10 @@ import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp, Loader2, Mail, Scale } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { Textarea } from "@/components/ui/textarea";
+import { ArrowLeft, Download, RotateCcw, ChevronDown, ChevronUp, Loader2, Mail, Scale, CheckCircle2, X } from "lucide-react";
 import { calculateResults, getReadinessLevel, getHighestRiskFactors } from "@/lib/assessment";
 import { AssessmentResults } from "@/types/questionnaire";
 import { QUESTIONS } from "@/data/questions";
@@ -47,6 +50,16 @@ export default function Dashboard() {
   const [exportMode, setExportMode] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isPdfRenderMode, setIsPdfRenderMode] = useState(false);
+  const [npsScore, setNpsScore] = useState<number | null>(null);
+  const [npsFeedback, setNpsFeedback] = useState("");
+  const [npsSubmitting, setNpsSubmitting] = useState(false);
+  const [npsSubmitted, setNpsSubmitted] = useState(false);
+  const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
+  const useSliderScale = false;
+  const [npsOpen, setNpsOpen] = useState(false);
+  const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
+  const feedbackPath =
+    (import.meta.env.VITE_FEEDBACK_PATH || "/nps-feedback").trim() || "/nps-feedback";
   const overviewRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const pillarsRef = useRef<HTMLDivElement>(null);
@@ -116,6 +129,19 @@ export default function Dashboard() {
       window.removeEventListener("resize", handleResize);
     };
   }, [exportMode, results?.pillarScores.length]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const storageKey = "feedback_session_id";
+    const existing = localStorage.getItem(storageKey);
+    const id =
+      (existing && existing.trim()) ||
+      (typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `anon-${Math.random().toString(36).slice(2)}`);
+    localStorage.setItem(storageKey, id);
+    setFeedbackSessionId(id);
+  }, []);
 
   const handleReset = () => {
     if (confirm("Are you sure you want to reset your assessment? This will delete all your responses.")) {
@@ -212,6 +238,74 @@ export default function Dashboard() {
       setIsExporting(false);
       setForceExpandAll(false);
       setExportMode(false);
+    }
+  };
+
+  const handleScoreSelect = (value: number) => {
+    setNpsScore(value);
+    if (npsSubmitted) setNpsSubmitted(false);
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!apiBaseUrl) {
+      toast.error("Feedback API is not configured. Please set VITE_API_BASE_URL.");
+      return;
+    }
+
+    if (npsScore === null) {
+      toast.error("Please choose a score from 0 to 10.");
+      return;
+    }
+
+    const normalizedPath = feedbackPath.startsWith("/") ? feedbackPath : `/${feedbackPath}`;
+    const feedbackEndpoint = `${apiBaseUrl.replace(/\/$/, "")}${normalizedPath}`;
+    setNpsSubmitting(true);
+    setNpsSubmitted(false);
+
+    try {
+      const normalizedScore = Math.max(0, Math.min(10, Math.round(npsScore)));
+      const payload = {
+        npsScore: normalizedScore, // required by new backend
+        score: normalizedScore, // backwards compatibility
+        comments: npsFeedback.trim(),
+        feedback: npsFeedback.trim(),
+        sessionId: feedbackSessionId,
+        completedAt: results?.completedAt,
+        pageUrl: typeof window !== "undefined" ? window.location.href : ""
+      };
+
+      const response = await fetch(feedbackEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        let detail = "";
+        try {
+          const data = await response.json();
+          detail = (data && (data.error || data.message)) || JSON.stringify(data);
+        } catch {
+          try {
+            detail = await response.text();
+          } catch {
+            /* ignore */
+          }
+        }
+        const message = detail ? `Feedback request failed (${response.status}): ${detail}` : `Feedback request failed with status ${response.status}`;
+        throw new Error(message);
+      }
+
+      setNpsSubmitted(true);
+      setNpsFeedback("");
+      setNpsScore(null);
+      setNpsOpen(false);
+      toast.success("Thank you for your feedback!");
+    } catch (error) {
+      console.error("Feedback submission failed", error);
+      toast.error(error instanceof Error ? error.message : "Unable to submit feedback. Please try again.");
+    } finally {
+      setNpsSubmitting(false);
     }
   };
 
@@ -767,6 +861,137 @@ export default function Dashboard() {
           </div>
 
           <div ref={euAiSectionRef}></div>
+
+          <section className="relative">
+            {!exportMode && (
+              <>
+                <Button
+                  type="button"
+                  variant="default"
+                  size="lg"
+                  aria-expanded={npsOpen}
+                  onClick={() => setNpsOpen((prev) => !prev)}
+                  className={`fixed right-4 bottom-6 z-40 min-w-[150px] shadow-xl transition-transform hover:translate-y-[-2px] opacity-90 hover:opacity-100 ${npsOpen ? "opacity-0 pointer-events-none" : ""}`}
+                >
+                  Feedback
+                </Button>
+
+                <div
+                  className={`fixed left-1/2 md:left-auto md:right-6 bottom-20 md:bottom-24 z-50 w-[min(92vw,420px)] transition-all duration-300 ease-in-out ${
+                    npsOpen
+                      ? "translate-y-0 opacity-100 -translate-x-1/2 md:translate-x-0"
+                      : "translate-y-4 opacity-0 pointer-events-none -translate-x-1/2 md:translate-x-0"
+                  }`}
+                >
+                  <Card className="border border-border/70 bg-white shadow-xl max-h-[80vh] overflow-y-auto">
+                    <CardHeader className="space-y-1 pb-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">Feedback</p>
+                          <CardTitle className="text-lg leading-tight">
+                            How likely are you to recommend this AI Readiness Assessment to a colleague or business partner?
+                          </CardTitle>
+                        </div>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setNpsOpen(false)}
+                          aria-label="Close feedback panel"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <CardDescription>
+                        0 = Not likely at all &nbsp;·&nbsp; 10 = Extremely likely
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      {useSliderScale ? (
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+                            <span className="font-medium">0 · Not likely at all</span>
+                            <span className="font-medium text-right">10 · Extremely likely</span>
+                          </div>
+                          <div className="px-1">
+                            <Slider
+                              min={0}
+                              max={10}
+                              step={1}
+                              value={[npsScore ?? 5]}
+                              onValueChange={(value) => handleScoreSelect(value[0])}
+                              aria-label="Likelihood to recommend on a scale from 0 to 10"
+                            />
+                          </div>
+                          <div className="text-center text-sm font-semibold text-foreground">
+                            {npsScore !== null ? `Selected score: ${npsScore}` : "Drag the slider to pick a score"}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-xs sm:text-sm text-muted-foreground">
+                            <span className="font-medium">0 · Not likely at all</span>
+                            <span className="font-medium text-right">10 · Extremely likely</span>
+                          </div>
+                          <div className="flex flex-wrap items-center justify-center gap-2">
+                            {Array.from({ length: 11 }).map((_, value) => (
+                              <Button
+                                key={value}
+                                type="button"
+                                variant={npsScore === value ? "default" : "outline"}
+                                className={`w-12 justify-center ${npsScore === value ? "" : "bg-background/80"}`}
+                                onClick={() => handleScoreSelect(value)}
+                              >
+                                {value}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <Label htmlFor="nps-feedback">
+                          Do you have any additional thoughts or suggestions for us? (Optional)
+                        </Label>
+                        <Textarea
+                          id="nps-feedback"
+                          placeholder="Do you have any additional thoughts or suggestions for us? (Optional)"
+                          value={npsFeedback}
+                          onChange={(e) => {
+                            setNpsFeedback(e.target.value);
+                            if (npsSubmitted) setNpsSubmitted(false);
+                          }}
+                          className="min-h-[120px] resize-none"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
+                        <Button
+                          onClick={handleSubmitFeedback}
+                          disabled={npsSubmitting}
+                          className="w-full sm:w-auto"
+                        >
+                          {npsSubmitting ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting...
+                            </>
+                          ) : (
+                            "Submit Feedback"
+                          )}
+                        </Button>
+                        {npsSubmitted && (
+                          <div className="inline-flex items-center gap-2 text-sm text-green-700 dark:text-green-400">
+                            <CheckCircle2 className="w-4 h-4" />
+                            Thank you for your feedback!
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </>
+            )}
+          </section>
         </div>
       </main>
       <Footer />
