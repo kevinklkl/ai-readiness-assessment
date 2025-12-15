@@ -262,18 +262,18 @@ export default function Dashboard() {
     setNpsSubmitting(true);
     setNpsSubmitted(false);
 
-    try {
-      const normalizedScore = Math.max(0, Math.min(10, Math.round(npsScore)));
-      const payload = {
-        npsScore: normalizedScore, // required by new backend
-        score: normalizedScore, // backwards compatibility
-        comments: npsFeedback.trim(),
-        feedback: npsFeedback.trim(),
-        sessionId: feedbackSessionId,
-        completedAt: results?.completedAt,
-        pageUrl: typeof window !== "undefined" ? window.location.href : ""
-      };
+    const normalizedScore = Math.max(0, Math.min(10, Math.round(npsScore)));
+    const payload = {
+      npsScore: normalizedScore, // required by new backend
+      score: normalizedScore, // backwards compatibility
+      comments: npsFeedback.trim(),
+      feedback: npsFeedback.trim(),
+      sessionId: feedbackSessionId,
+      completedAt: results?.completedAt,
+      pageUrl: typeof window !== "undefined" ? window.location.href : ""
+    };
 
+    try {
       const response = await fetch(feedbackEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -292,6 +292,12 @@ export default function Dashboard() {
             /* ignore */
           }
         }
+        console.error("Feedback submission failed: API error", {
+          endpoint: feedbackEndpoint,
+          status: response.status,
+          statusText: response.statusText,
+          detail: detail || null
+        });
         const message = detail ? `Feedback request failed (${response.status}): ${detail}` : `Feedback request failed with status ${response.status}`;
         throw new Error(message);
       }
@@ -302,7 +308,13 @@ export default function Dashboard() {
       setNpsOpen(false);
       toast.success("Thank you for your feedback!");
     } catch (error) {
-      console.error("Feedback submission failed", error);
+      console.error("Feedback submission failed", {
+        error,
+        endpoint: feedbackEndpoint,
+        npsScore: normalizedScore,
+        hasComments: Boolean(npsFeedback.trim()),
+        sessionId: feedbackSessionId
+      });
       toast.error(error instanceof Error ? error.message : "Unable to submit feedback. Please try again.");
     } finally {
       setNpsSubmitting(false);
