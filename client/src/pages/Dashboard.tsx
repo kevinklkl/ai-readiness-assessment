@@ -54,11 +54,10 @@ export default function Dashboard() {
   const [npsFeedback, setNpsFeedback] = useState("");
   const [npsSubmitting, setNpsSubmitting] = useState(false);
   const [npsSubmitted, setNpsSubmitted] = useState(false);
-  const [feedbackSessionId, setFeedbackSessionId] = useState<string | null>(null);
   const useSliderScale = false;
   const [npsOpen, setNpsOpen] = useState(false);
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL || "").trim();
-  const feedbackPath = "/api/nps-feedback";
+  const feedbackPath = (import.meta.env.VITE_FEEDBACK_PATH || "/api/feedback").trim();
   const overviewRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const pillarsRef = useRef<HTMLDivElement>(null);
@@ -128,19 +127,6 @@ export default function Dashboard() {
       window.removeEventListener("resize", handleResize);
     };
   }, [exportMode, results?.pillarScores.length]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const storageKey = "feedback_session_id";
-    const existing = localStorage.getItem(storageKey);
-    const id =
-      (existing && existing.trim()) ||
-      (typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `anon-${Math.random().toString(36).slice(2)}`);
-    localStorage.setItem(storageKey, id);
-    setFeedbackSessionId(id);
-  }, []);
 
   const handleReset = () => {
     if (confirm("Are you sure you want to reset your assessment? This will delete all your responses.")) {
@@ -246,26 +232,28 @@ export default function Dashboard() {
   };
 
   const handleSubmitFeedback = async () => {
-    if (!apiBaseUrl) {
-      toast.error("Feedback API is not configured. Please set VITE_API_BASE_URL.");
-      return;
-    }
-
     if (npsScore === null) {
       toast.error("Please choose a score from 0 to 10.");
       return;
     }
 
     const normalizedPath = feedbackPath.startsWith("/") ? feedbackPath : `/${feedbackPath}`;
-    const feedbackEndpoint = `${apiBaseUrl.replace(/\/$/, "")}${normalizedPath}`;
+    const feedbackEndpoint = apiBaseUrl
+      ? `${apiBaseUrl.replace(/\/$/, "")}${normalizedPath}`
+      : normalizedPath;
     setNpsSubmitting(true);
     setNpsSubmitted(false);
 
     const normalizedScore = Math.max(0, Math.min(10, Math.round(npsScore)));
+    const safePageUrl =
+      typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname}`
+        : "";
     const payload = {
+      score: normalizedScore,
       npsScore: normalizedScore,
-      pageUrl: typeof window !== "undefined" ? window.location.href : "",
-      sessionId: feedbackSessionId,
+      pageUrl: safePageUrl,
+      comments: npsFeedback.trim(),
       feedbackText: npsFeedback.trim()
     };
 
@@ -301,15 +289,13 @@ export default function Dashboard() {
       setNpsSubmitted(true);
       setNpsFeedback("");
       setNpsScore(null);
-      setNpsOpen(false);
       toast.success("Thank you for your feedback!");
     } catch (error) {
       console.error("Feedback submission failed", {
         error,
         endpoint: feedbackEndpoint,
         npsScore: normalizedScore,
-        hasComments: Boolean(npsFeedback.trim()),
-        sessionId: feedbackSessionId
+        hasComments: Boolean(npsFeedback.trim())
       });
       toast.error(error instanceof Error ? error.message : "Unable to submit feedback. Please try again.");
     } finally {
@@ -972,6 +958,15 @@ export default function Dashboard() {
                           className="min-h-[120px] resize-none"
                         />
                       </div>
+
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        Submitting sends your score and optional comment to our server so we can improve this tool.
+                        Please avoid including personal data. Learn more in{" "}
+                        <a href="/about-us" className="underline underline-offset-2">
+                          About Us & Privacy
+                        </a>
+                        .
+                      </p>
 
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
                         <Button

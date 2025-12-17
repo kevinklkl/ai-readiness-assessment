@@ -106,14 +106,14 @@ export default function AboutUs() {
               GDPR & Data Privacy
             </h2>
 
-            <div className="grid md:grid-cols-3 gap-6 mb-12">
+            <div className="grid md:grid-cols-2 gap-6 mb-12">
               <Card>
                 <CardHeader>
                   <Server className="w-10 h-10 text-primary mb-2" />
-                  <CardTitle>Local Processing</CardTitle>
+                  <CardTitle>Assessment Results Stay Local</CardTitle>
                 </CardHeader>
                 <CardContent className="text-muted-foreground">
-                  Your data never leaves your browser. All answers are processed locally on your device using client-side technology. We do not have a central database storing your assessment results.
+                  Your questionnaire answers and assessment results are stored in your browser (local storage) and processed locally on your device. We do not receive or store your assessment answers on our servers.
                 </CardContent>
               </Card>
 
@@ -124,6 +124,16 @@ export default function AboutUs() {
                 </CardHeader>
                 <CardContent className="text-muted-foreground">
                   We do not use cookies for advertising, tracking pixels, or third-party analytics that compromise your anonymity.
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <Mail className="w-10 h-10 text-primary mb-2" />
+                  <CardTitle>Feedback (Optional)</CardTitle>
+                </CardHeader>
+                <CardContent className="text-muted-foreground">
+                  If you submit feedback, we store your score and optional comment to improve the tool (this is the only time the app sends data to our server). We retain feedback for a limited period (typically up to 180 days).
                 </CardContent>
               </Card>
 
@@ -146,11 +156,13 @@ export default function AboutUs() {
               <div className="prose dark:prose-invert max-w-none text-muted-foreground">
                 <p>
                   Under the General Data Protection Regulation (GDPR), you have the right to access, rectify, and erase your personal data. 
-                  However, since <strong>we do not collect or store your personal data on our servers</strong>, you are in full control.
+                  Your assessment answers stay in your browser. If you submit feedback, we store that feedback and will help you exercise your rights.
                 </p>
                 <ul className="list-disc pl-5 mt-4 space-y-2">
-                  <li>To "delete" your data, simply clear your browser cache or refresh the application.</li>
-                  <li>No data is transmitted to third parties.</li>
+                  <li>To delete your assessment data, use the reset button or clear your browser storage.</li>
+                  <li>We store functional preferences (e.g., sidebar state) in your browser (cookie/local storage).</li>
+                  <li>To request deletion of submitted feedback, contact us by email and include the approximate time and the text you submitted.</li>
+                  <li>Service providers (hosting, database) may process data on our behalf when enabled/configured.</li>
                   <li>This tool is strictly for self-assessment purposes.</li>
                 </ul>
               </div>
