@@ -34,7 +34,7 @@ Retention:
 - Neon pruning is best-effort and only enabled when `NEON_FEEDBACK_ENABLE_RETENTION=1` and the table has a timestamp column (defaults to `created_at`).
 
 User rights:
-- If you want us to erase submitted feedback, contact us and include the approximate time and the text you submitted so we can locate it.
+- If you want us to erase submitted feedback, contact us at ligia@tlu.ee and include the approximate time and the text you submitted so we can locate it.
 
 ### Analytics / tracking
 - The application does not include third-party analytics or advertising tracking by default.

@@ -161,7 +161,10 @@ export default function AboutUs() {
                 <ul className="list-disc pl-5 mt-4 space-y-2">
                   <li>To delete your assessment data, use the reset button or clear your browser storage.</li>
                   <li>We store functional preferences (e.g., sidebar state) in your browser (cookie/local storage).</li>
-                  <li>To request deletion of submitted feedback, contact us by email and include the approximate time and the text you submitted.</li>
+                  <li>
+                    To request deletion of submitted feedback, contact us at{" "}
+                    <a className="underline underline-offset-2" href="mailto:ligia@tlu.ee">ligia@tlu.ee</a> and include the approximate time and the text you submitted.
+                  </li>
                   <li>Service providers (hosting, database) may process data on our behalf when enabled/configured.</li>
                   <li>This tool is strictly for self-assessment purposes.</li>
                 </ul>
